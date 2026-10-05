@@ -857,8 +857,11 @@ function openSettings(){
     '<div class="help" style="margin-top:10px">A share link is this page\'s address with the token after <code>#token=</code>. Open it once on a phone and the token is stored on that device (the link is then cleared from the address bar). Give reps a read/write token and viewers a read-only one.</div></div></div>';
   body += '<div class="sec"><h3>Data</h3><div class="b"><div class="row"><button class="btn" onclick="exportCSV()">Export opportunities CSV</button><button class="btn" onclick="exportJSON()">Backup JSON</button>' + (S.mode === 'local' ? '<button class="btn btn-red" onclick="resetLocal()">Reset local demo</button>' : '') + '</div></div></div>';
   if (admin) {
-    body += '<div class="sec"><h3>PINs (admin)</h3><div class="b"><div class="grid">' + fld('User', 'pinUser', '', 'select', { options: S.cfg.users.map(function(u){ return [u.key, u.name + ' (' + u.role + ')']; }) }) + fld('New PIN (4–6 digits)', 'pinNew', '', 'text', { attrs: ' inputmode="numeric"' }) + '</div><div class="row" style="margin-top:10px"><button class="btn btn-gold" onclick="changePin()">Save PIN</button></div>' +
-      '<div class="help" style="margin-top:10px">Users: ' + S.cfg.users.map(function(u){ return '<b>' + h(u.name) + '</b> edits ' + h((u.edits || []).join(', ') || 'nothing'); }).join(' · ') + '. To rename users or change stages/sectors, edit <code>' + h(DEFAULTS.CONFIG_PATH) + '</code> in the data repo.</div></div></div>';
+    body += '<div class="sec"><h3>Users (admin)</h3><div class="b">' +
+      '<table class="tbl" style="width:100%"><thead><tr><th>Name</th><th>Role</th><th class="hideM">Access</th><th></th></tr></thead><tbody>' +
+      S.cfg.users.map(function(u){ return '<tr><td><b>' + h(u.name) + '</b></td><td>' + h(u.role) + '</td><td class="hideM muted">' + h(accessLabel(u)) + '</td><td style="text-align:right;white-space:nowrap"><button class="btn btn-sm" onclick="openUser(\'' + u.key + '\')">Edit</button> ' + (u.key === S.user.key ? '' : '<button class="btn btn-sm btn-red" onclick="deleteUser(\'' + u.key + '\')">Delete</button>') + '</td></tr>'; }).join('') +
+      '</tbody></table><div class="row" style="margin-top:10px"><button class="btn btn-gold" onclick="openUser()">+ Add user</button></div>' +
+      '<div class="help" style="margin-top:10px">Reps get their own pipeline file. Managers see everything and edit tenders. Admins can also manage users and PINs. To change stages/sectors, edit <code>' + h(DEFAULTS.CONFIG_PATH) + '</code> in the data repo.</div></div></div>';
   }
   body += '<div class="sec"><h3>Setup guide</h3><div class="b help"><ol>' +
     '<li>Create a <b>private</b> GitHub repo for the data (e.g. <code>crm-data</code>) and upload the <code>data/</code> folder (config, lindsay, di, tenders).</li>' +
@@ -877,11 +880,48 @@ function saveSettings(){
 function disconnect(){ S.token = ''; LS.del('token'); S.mode = 'local'; S.shas = {}; S.missing = {}; S.data = {}; closeSheet(); loadAll().then(render); }
 function shareLink(){ var url = location.href.split('#')[0] + '#token=' + encodeURIComponent(S.token) + '&repo=' + encodeURIComponent(S.repo); copyText(url); }
 function resetLocal(){ if (!confirm('Reset the local demo data back to the imported pipeline?')) return; ['file.' + DEFAULTS.CONFIG_PATH, 'file.' + DEFAULTS.TENDERS_PATH].forEach(LS.del); DEFAULT_CONFIG.users.forEach(function(u){ if (u.file) LS.del('file.' + u.file); }); S.data = {}; closeSheet(); loadAll().then(render); }
-function changePin(){
-  var f = readForm(); if (!/^\d{4,6}$/.test(f.pinNew)) { alert('PIN must be 4–6 digits'); return; }
-  var u = userByKey(f.pinUser); var hsh = sha256(f.pinNew);
-  if (S.cfg.users.some(function(x){ return x.pinHash === hsh && x !== u; })) { alert('Another user already has that PIN — choose a different one.'); return; }
-  u.pinHash = hsh; save('config', 'Change PIN for ' + u.name).then(function(){ toast('PIN updated for ' + u.name); });
+/* ---------- users (admin) ---------- */
+function accessLabel(u){ var e = u.edits || []; if (e.indexOf('config') >= 0) return 'Admin'; if (u.file) return 'Sales rep'; if (e.indexOf('tenders') >= 0) return 'Sales manager'; return 'View only'; }
+function accessOf(u){ var e = u.edits || []; if (e.indexOf('config') >= 0) return 'admin'; if (u.file) return 'rep'; if (e.indexOf('tenders') >= 0) return 'manager'; return 'viewer'; }
+function slugKey(name){ var k = name.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 20) || 'user'; var base = k, n = 2; while (userByKey(k)) k = base + n++; return k; }
+function openUser(key){
+  var u = key ? userByKey(key) : null, isNew = !u;
+  var body = '<div class="grid">' + fld('Name', 'uName', u ? u.name : '', 'text', { span: true, ph: 'e.g. Sam Jones' }) + fld('Job title', 'uRole', u ? u.role : '', 'text', { span: true, ph: 'e.g. BDM' }) +
+    fld('Access', 'uAccess', u ? accessOf(u) : 'rep', 'select', { span: true, options: [['rep', 'Sales rep — own pipeline'], ['manager', 'Sales manager — view all, edit tenders'], ['admin', 'Admin — everything incl. users & PINs'], ['viewer', 'View only']] }) +
+    fld(isNew ? 'PIN (4–6 digits)' : 'New PIN (leave blank to keep)', 'uPin', '', 'text', { span: true, attrs: ' inputmode="numeric" autocomplete="off"' }) + '</div>' +
+    (u && u.file ? '<div class="help" style="margin-top:8px">Pipeline file: <code>' + h(u.file) + '</code>. Changing a rep to another access type keeps their file and pipeline data.</div>' : '');
+  openSheet(isNew ? 'Add user' : 'Edit user', body, '<button class="btn" onclick="openSettings()">Back</button><button class="btn btn-gold" onclick="saveUser(' + (u ? '\'' + u.key + '\'' : 'null') + ')">Save</button>');
+}
+function saveUser(key){
+  var f = readForm(), u = key ? userByKey(key) : null, name = f.uName.trim(), role = f.uRole.trim(), pin = f.uPin.trim();
+  if (!name) { alert('Enter a name'); return; }
+  if (!u && !pin) { alert('Set a PIN for the new user'); return; }
+  if (pin && !/^\d{4,6}$/.test(pin)) { alert('PIN must be 4–6 digits'); return; }
+  var hsh = pin ? sha256(pin) : null;
+  if (hsh && S.cfg.users.some(function(x){ return x.pinHash === hsh && x !== u; })) { alert('Another user already has that PIN — choose a different one.'); return; }
+  if (u && u.key === S.user.key && f.uAccess !== 'admin') { alert('You cannot remove your own admin access.'); return; }
+  var jobs = [];
+  if (!u) { u = { key: slugKey(name), name: name, role: role || 'Sales', pinHash: hsh, edits: [] }; S.cfg.users.push(u); }
+  else { u.name = name; u.role = role || u.role; if (hsh) u.pinHash = hsh; }
+  if (f.uAccess === 'rep' && !u.file) { u.file = 'data/' + u.key + '.json'; }
+  if (f.uAccess === 'rep' && !S.data[u.key]) { S.data[u.key] = emptyRep(u); jobs.push(function(){ return writeFile(u.file, S.data[u.key], 'Create ' + u.file); }); }
+  if (u.file && S.data[u.key] && S.data[u.key].owner !== name) { S.data[u.key].owner = name; jobs.push(function(){ return save(u.key, 'Rename rep to ' + name); }); }
+  var repKeys = repUsers().map(function(r){ return r.key; });
+  u.edits = f.uAccess === 'admin' ? repKeys.concat(['tenders', 'config']) : f.uAccess === 'manager' ? ['tenders'] : f.uAccess === 'rep' ? [u.key] : [];
+  // every admin can edit every rep
+  S.cfg.users.forEach(function(x){ if ((x.edits || []).indexOf('config') >= 0) repKeys.forEach(function(k){ if (x.edits.indexOf(k) < 0) x.edits.push(k); }); });
+  if (S.user.key === u.key) S.user = u;
+  jobs.push(function(){ return save('config', (key ? 'Update user ' : 'Add user ') + name); });
+  jobs.reduce(function(p, j){ return p.then(j); }, Promise.resolve()).then(function(){ toast((key ? 'Updated ' : 'Added ') + name); openSettings(); render(); });
+}
+function deleteUser(key){
+  var u = userByKey(key); if (!u) return;
+  var n = u.file && S.data[key] ? S.data[key].opportunities.length : 0;
+  if (!confirm('Remove ' + u.name + ' from the CRM?' + (n ? '\n\nTheir ' + n + ' opportunities will no longer show in the app. The file ' + u.file + ' stays in the data repo so nothing is lost.' : ''))) return;
+  S.cfg.users = S.cfg.users.filter(function(x){ return x.key !== key; });
+  S.cfg.users.forEach(function(x){ x.edits = (x.edits || []).filter(function(e){ return e !== key; }); });
+  delete S.data[key];
+  save('config', 'Remove user ' + u.name).then(function(){ toast('Removed ' + u.name); openSettings(); render(); });
 }
 function seedRepo(){
   if (!confirm('Create the data files in ' + S.repo + ' now? Missing files are created from the imported pipeline (Lindsay) and empty templates.')) return;
