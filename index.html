@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1F3864">
+<title>Tibard Sales Pipeline</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231F3864'/%3E%3Ctext x='16' y='22' font-size='17' font-family='Arial' font-weight='700' text-anchor='middle' fill='%23C9A24B'%3ET%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --navy:#1F3864; --navy2:#2a4a80; --steel:#5b7ba6; --gold:#C9A24B;
+  --bg:#f4f6f9; --card:#ffffff; --line:#dfe4ec; --txt:#1c2431; --mut:#6b7686;
+  --red:#c0392b; --green:#1e7e46; --amber:#92400e;
+  --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;-webkit-tap-highlight-color:transparent}
+button,input,select,textarea{font-family:inherit;font-size:14px;color:inherit}
+a{color:var(--navy2)}
+
+/* ---- header (matches Costing Calculator) ---- */
+header{background:var(--navy);color:#fff;padding:calc(10px + var(--sat)) 16px 10px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50}
+header img{height:34px;background:#fff;border-radius:6px;padding:3px 8px}
+header h1{font-size:17px;font-weight:600;letter-spacing:.3px;white-space:nowrap}
+header h1 span{color:var(--gold)}
+header .spacer{flex:1}
+@media(max-width:700px){header{gap:8px;padding-left:12px;padding-right:12px}header img{height:28px;padding:2px 6px}header h1{font-size:15px}.sync span{display:none}#refreshBtn{display:none}.userchip{padding:5px 8px;font-size:11.5px}.ibtn{flex-shrink:0}}
+@media(max-width:480px){header h1{display:none}}
+.sync{display:flex;align-items:center;gap:6px;font-size:11px;opacity:.85;white-space:nowrap}
+.sync i{width:9px;height:9px;border-radius:50%;background:#9aa6b8;display:inline-block}
+.sync i.ok{background:#3ddc84}.sync i.busy{background:var(--gold);animation:pulse 1s infinite}.sync i.err{background:#ff6b5b}.sync i.local{background:#9aa6b8}
+@keyframes pulse{50%{opacity:.3}}
+.ibtn{background:rgba(255,255,255,.12);color:#fff;border:none;border-radius:6px;padding:7px 10px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.ibtn:hover{background:rgba(255,255,255,.2)}
+.ibtn.gold{background:var(--gold);color:#22262e}
+.userchip{font-size:12px;background:rgba(255,255,255,.12);padding:6px 10px;border-radius:14px;white-space:nowrap}
+.userchip b{color:var(--gold)}
+
+/* ---- tabs ---- */
+nav.tabs{background:var(--navy);display:flex;gap:4px;padding:0 12px 10px;overflow-x:auto;scrollbar-width:none;position:sticky;top:calc(54px + var(--sat));z-index:49}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs button{flex:0 0 auto;background:rgba(255,255,255,.12);color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px}
+nav.tabs button.on{background:var(--gold);color:#22262e}
+nav.tabs button .lock{font-size:11px;opacity:.8}
+nav.tabs button .cnt{font-size:11px;background:rgba(0,0,0,.18);border-radius:10px;padding:1px 7px}
+
+main{max-width:1180px;margin:0 auto;padding:14px 14px calc(80px + var(--sab))}
+.banner{background:#fffbea;border:1px solid #f1e3a4;color:#7A5B14;border-radius:8px;padding:9px 12px;font-size:12.5px;margin-bottom:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.banner.err{background:#fee2e2;border-color:#f3b4b4;color:#991b1b}
+.banner .lnk{font-weight:700;cursor:pointer;text-decoration:underline}
+
+/* ---- buttons / fields ---- */
+.btn{border:none;border-radius:6px;padding:9px 14px;font-size:13px;cursor:pointer;font-weight:600;background:#e8ecf3;color:var(--navy);white-space:nowrap}
+.btn:hover{background:#dde3ee}
+.btn-gold{background:var(--gold);color:#22262e}.btn-gold:hover{background:#d5b25f}
+.btn-navy{background:var(--navy);color:#fff}.btn-navy:hover{background:var(--navy2)}
+.btn-red{background:#fee2e2;color:#991b1b}
+.btn-sm{padding:6px 10px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:default}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label{font-size:11px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+.field input,.field select,.field textarea{border:1px solid var(--line);border-radius:6px;padding:10px 11px;font-size:15px;outline:none;background:#fff;width:100%}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--steel)}
+.field textarea{min-height:80px;resize:vertical}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.grid .span2{grid-column:span 2}
+@media(max-width:480px){.grid{grid-template-columns:1fr 1fr}.grid .span2,.grid .mspan{grid-column:span 2}}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips .chip{border:1px solid var(--line);background:#fff;border-radius:16px;padding:6px 12px;font-size:12.5px;cursor:pointer;font-weight:600;color:var(--mut)}
+.chips .chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.chips .chip.gold.on{background:var(--gold);border-color:var(--gold);color:#22262e}
+
+/* ---- cards ---- */
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 1px 3px rgba(20,30,50,.06);overflow:hidden;margin-bottom:12px}
+.card h2{font-size:14px;padding:11px 14px;border-bottom:1px solid var(--line);color:var(--navy);display:flex;align-items:center;gap:8px}
+.card h2 .r{margin-left:auto;font-size:12px;font-weight:400;color:var(--mut)}
+.card .body{padding:12px 14px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.toolbar input[type=search]{flex:1;min-width:160px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:15px;outline:none;background:#fff}
+.toolbar input[type=search]:focus{border-color:var(--steel)}
+.toolbar select{border:1px solid var(--line);border-radius:8px;padding:9px 10px;background:#fff;font-size:13px}
+
+/* opportunity list */
+.olist{display:flex;flex-direction:column;gap:8px}
+.opp{background:#fff;border:1px solid var(--line);border-radius:10px;padding:11px 13px;cursor:pointer;box-shadow:0 1px 2px rgba(20,30,50,.05);display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:start}
+.opp:hover{border-color:var(--steel)}
+.opp .co{font-weight:700;font-size:15px;color:var(--navy)}
+.opp .meta{font-size:12px;color:var(--mut);grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap}
+.opp .val{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.opp .val small{display:block;font-weight:400;color:var(--mut);font-size:11px}
+.opp .next{grid-column:1/-1;font-size:12.5px;margin-top:2px;display:flex;gap:6px;align-items:baseline}
+.opp .next .due{font-weight:700;white-space:nowrap}
+.due.over{color:var(--red)}.due.soon{color:var(--amber)}.due.ok{color:var(--green)}
+.stg{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:.2px;white-space:nowrap;background:#e8ecf3;color:var(--navy)}
+.stg[data-s="Lead"]{background:#eef1f6;color:#6b7686}
+.stg[data-s="Contacted"]{background:#e6edf7;color:#2a4a80}
+.stg[data-s="Quoted"]{background:#fbf3dc;color:#7A5B14}
+.stg[data-s="Samples"]{background:#ece6f7;color:#5b3f9e}
+.stg[data-s="Account set-up"]{background:#dff3f3;color:#0e6b73}
+.stg[data-s="Won"]{background:#d1fae5;color:#065f46}
+.stg[data-s="On hold"]{background:#fef3c7;color:#92400e}
+.stg[data-s="Lost"]{background:#fee2e2;color:#991b1b}
+.stg[data-s="Watching"]{background:#eef1f6;color:#6b7686}
+.stg[data-s="Registered"]{background:#e6edf7;color:#2a4a80}
+.stg[data-s="PQQ / SQ"]{background:#ece6f7;color:#5b3f9e}
+.stg[data-s="ITT received"]{background:#fbf3dc;color:#7A5B14}
+.stg[data-s="Submitted"]{background:#dff3f3;color:#0e6b73}
+.stg[data-s="Clarifications"]{background:#fef3c7;color:#92400e}
+.stg[data-s="No bid"]{background:#eef1f6;color:#6b7686}
+
+/* board */
+.board{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px}
+.col{flex:0 0 230px;background:#eef1f6;border-radius:10px;padding:8px}
+.col h3{font-size:12px;color:var(--navy);display:flex;justify-content:space-between;padding:4px 4px 8px}
+.col h3 small{color:var(--mut);font-weight:400}
+.col .opp{padding:9px 10px;margin-bottom:8px}
+.col .opp .co{font-size:13.5px}.col .opp .next{flex-direction:column;gap:2px}
+
+/* KPI */
+.kgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.kpi .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--mut);font-weight:600}
+.kpi .v{font-size:22px;font-weight:700;color:var(--navy);font-variant-numeric:tabular-nums;margin-top:2px;line-height:1.1}
+.kpi .s{font-size:11px;color:var(--mut);margin-top:3px}
+.kpi.warn .v{color:var(--red)}.kpi.good .v{color:var(--green)}
+.bars{display:flex;flex-direction:column;gap:6px}
+.bar{display:grid;grid-template-columns:110px 1fr 70px;gap:8px;align-items:center;font-size:12px}
+.bar .t{height:16px;background:#eef1f6;border-radius:4px;overflow:hidden}
+.bar .t i{display:block;height:100%;background:var(--steel);border-radius:4px}
+.bar .n{text-align:right;color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}
+.rep2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:700px){.rep2{grid-template-columns:1fr}}
+.att{list-style:none}
+.att li{padding:8px 0;border-bottom:1px solid #eef1f6;font-size:13px;display:flex;gap:8px;align-items:baseline;cursor:pointer}
+.att li:last-child{border-bottom:none}
+.att li .who{font-size:11px;color:var(--mut);white-space:nowrap;margin-left:auto}
+
+/* sheet / modal */
+.ov{position:fixed;inset:0;height:100svh;background:rgba(15,25,45,.55);z-index:100;display:flex;align-items:flex-end;justify-content:center}
+@media(min-width:700px){.ov{align-items:center;padding:20px}}
+.sheet{background:var(--bg);width:100%;max-width:760px;max-height:calc(100svh - 20px);border-radius:14px 14px 0 0;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 -10px 40px rgba(0,0,0,.3)}
+@media(min-width:700px){.sheet{border-radius:14px;max-height:90vh}}
+.sheet .sh{background:var(--navy);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px}
+.sheet .sh h2{font-size:16px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.sheet .sh .mx{background:none;border:none;color:#fff;font-size:24px;cursor:pointer;opacity:.8;line-height:1}
+.sheet .sb{overflow-y:auto;padding:12px 14px calc(16px + var(--sab));-webkit-overflow-scrolling:touch}
+.sheet .sf{background:#fff;border-top:1px solid var(--line);padding:10px 14px calc(10px + var(--sab));display:flex;gap:8px;flex-wrap:wrap}
+.sheet .sf .btn{flex:1}
+.sec{background:#fff;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;overflow:hidden}
+.sec h3{font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:var(--mut);padding:9px 12px;border-bottom:1px solid #eef1f6;display:flex;align-items:center}
+.sec h3 .r{margin-left:auto}
+.sec .b{padding:10px 12px}
+.kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 12px;font-size:13px}
+.kv div b{display:block;font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.3px;font-weight:600}
+.kv div span{display:block;margin-top:1px;word-break:break-word}
+.kv .wide{grid-column:1/-1}
+.contact{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #eef1f6;font-size:13px}
+.contact:last-child{border-bottom:none}
+.contact .nm{font-weight:700}.contact .rl{color:var(--mut);font-size:12px}
+.contact .acts{margin-left:auto;display:flex;gap:6px}
+.contact .acts a,.contact .acts button{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:#e8ecf3;color:var(--navy);text-decoration:none;font-size:15px;border:none;cursor:pointer}
+.tl{list-style:none}
+.tl li{display:grid;grid-template-columns:34px 1fr;gap:8px;padding:9px 0;border-bottom:1px solid #eef1f6}
+.tl li:last-child{border-bottom:none}
+.tl .ic{width:30px;height:30px;border-radius:50%;background:#e8ecf3;display:flex;align-items:center;justify-content:center;font-size:14px}
+.tl .hd{font-size:11.5px;color:var(--mut);display:flex;gap:8px;flex-wrap:wrap}
+.tl .hd b{color:var(--navy)}
+.tl .nt{font-size:13.5px;margin-top:3px;white-space:pre-wrap;word-break:break-word}
+.tl .nx{font-size:12px;color:var(--amber);margin-top:3px}
+.fab{position:fixed;right:16px;bottom:calc(16px + var(--sab));background:var(--gold);color:#22262e;border:none;border-radius:28px;padding:14px 20px;font-size:14px;font-weight:700;box-shadow:0 6px 20px rgba(0,0,0,.25);cursor:pointer;z-index:60}
+.empty{padding:30px 10px;text-align:center;color:var(--mut);font-size:13.5px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(80px + var(--sab));background:#22262e;color:#fff;padding:10px 16px;border-radius:20px;font-size:13px;z-index:200;box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+.pin{display:flex;flex-direction:column;align-items:center;gap:10px;padding:10px 0}
+.pin input{font-family:Consolas,monospace;font-size:26px;letter-spacing:12px;text-align:center;width:180px;border:1px solid var(--line);border-radius:8px;padding:10px}
+.pin .msg{font-size:12px;color:var(--red);min-height:16px}
+.muted{color:var(--mut);font-size:12px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+code{font-family:Consolas,monospace;font-size:12.5px;background:#eef1f6;padding:1px 5px;border-radius:4px}
+.help{font-size:12.5px;line-height:1.5}
+.help ol{padding-left:18px}.help li{margin:4px 0}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.tbl th{background:#f7f9fc;text-align:left;padding:7px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--mut);border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:7px 10px;border-bottom:1px solid #eef1f6;vertical-align:top}
+.tbl td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tbl tr{cursor:pointer}.tbl tr:hover td{background:#f2f6fc}
+.hideM{display:initial}@media(max-width:700px){.hideM{display:none!important}}
+.onlyM{display:none}@media(max-width:700px){.onlyM{display:initial}}
+</style>
+</head>
+<body>
+<header>
+  <img id="logo" alt="Tibard">
+  <h1>Sales <span>Pipeline</span></h1>
+  <div class="spacer"></div>
+  <div class="sync" id="sync"><i class="local"></i><span id="syncTxt">local</span></div>
+  <div class="userchip" id="userChip" style="display:none"></div>
+  <button class="ibtn" id="refreshBtn" title="Refresh">&#8635;</button>
+  <button class="ibtn" id="settingsBtn" title="Settings">&#9881;</button>
+</header>
+<nav class="tabs" id="tabs"></nav>
+<main id="main"></main>
+<div id="ovRoot"></div>
+<div class="toast" id="toast"></div>
+<script>
+/* =====================================================================
+   Tibard Sales Pipeline — single-file CRM for GitHub Pages
+   Data lives as JSON files in a GitHub repo (read/written via the
+   GitHub Contents API with a fine-grained token). With no token the app
+   runs in local mode (this browser only) so it can be tried out.
+   ===================================================================== */
+'use strict';
+
+/* ---------- defaults (change DATA_REPO to your data repo) ---------- */
+var DEFAULTS = {
+  DATA_REPO: 'luke5446/crm-data',   // owner/repo that holds data/*.json
+  BRANCH: 'main',
+  CONFIG_PATH: 'data/config.json',
+  TENDERS_PATH: 'data/tenders.json',
+  REFRESH_MS: 5 * 60 * 1000
+};
+var TIBARD_LOGO = 'data:image/jpeg;base64,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';
+var DEFAULT_CONFIG = {"updatedAt": "2026-10-05T09:00:00.000Z", "users": [{"key": "lindsay", "name": "Lindsay Smith", "role": "BDM", "file": "data/lindsay.json", "pinHash": "0ffe1abd1a08215353c233d6e009613e95eec4253832a761af28ff37ac5a150c", "edits": ["lindsay"]}, {"key": "di", "name": "Di Buckley", "role": "National Account Manager", "file": "data/di.json", "pinHash": "edee29f882543b956620b26d0ee0e7e950399b1c4222f5de05e06425b4c995e9", "edits": ["di"]}, {"key": "salesmgr", "name": "Sales Manager", "role": "Sales Manager", "pinHash": "318aee3fed8c9d040d35a7fc1fa776fb31303833aa2de885354ddf3d44d8fb69", "edits": ["tenders"]}, {"key": "admin", "name": "Luke Harrison", "role": "Admin", "pinHash": "888df25ae35772424a560c7152a1de794440e0ea5cfee62828333a456a506e05", "edits": ["lindsay", "di", "tenders", "config"]}], "stages": ["Lead", "Contacted", "Quoted", "Samples", "Account set-up", "Won", "On hold", "Lost"], "tenderStages": ["Watching", "Registered", "PQQ / SQ", "ITT received", "Submitted", "Clarifications", "Won", "Lost", "No bid"], "sectors": ["Care homes", "Cinema & leisure", "Clubs & spa", "Drinks & distillery", "Education", "FM & logistics", "Food service", "Funeral", "Healthcare", "Holiday parks", "Hotels", "Other", "Property / housebuilder", "Retail", "Travel & cruise", "Wholesale / distributor"], "activityTypes": ["Call", "Email", "Meeting", "Samples", "Quote", "Note"], "staleDays": 30, "fyStartMonth": 2};
+var SEED = {"lindsay": {"owner": "Lindsay Smith", "ownerKey": "lindsay", "updatedAt": "2026-10-05T09:30:00.000Z", "accounts": [{"id": "acc_c7e5fede8c", "name": "The Royal British Legion", "location": "London", "sector": "Care homes", "type": "New business", "staff": 100, "website": "", "sageCode": "", "brief": "x 8 care homes managers suiting", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_516ba1f9d7", "name": "Dakota Hotel Group", "location": "Leeds", "sector": "Hotels", "type": "New business", "staff": 630, "website": "", "sageCode": "", "brief": "completed all perliminary questions and now awaitng next steps", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_2282bf3e05", "name": "Cineworld", "location": "Brentford", "sector": "Cinema & leisure", "type": "New business", "staff": 2000, "website": "", "sageCode": "", "brief": "Presented designs", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_25d10a8000", "name": "Dignity funeral", "location": "Bham", "sector": "Funeral", "type": "New business", "staff": 3000, "website": "", "sageCode": "", "brief": "Presented prices", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_5cdc7a9ed0", "name": "Vue Cinema", "location": "UK", "sector": "Cinema & leisure", "type": "New business", "staff": 4000, "website": "", "sageCode": "", "brief": "88 Uk & Ireland", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_7bf91e1dd7", "name": "We are Group", "location": "Harrow", "sector": "Care homes", "type": "New business", "staff": 1200, "website": "", "sageCode": "", "brief": "30 care homes", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_bc15593638", "name": "Puccino", "location": "UK", "sector": "Food service", "type": "New business", "staff": 100, "website": "", "sageCode": "", "brief": "38 Sites", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_a8acb316b9", "name": "Caron Group", "location": "Cardiff", "sector": "Care homes", "type": "New business", "staff": 2000, "website": "", "sageCode": "", "brief": "17 care homes", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_4bfebc7f29", "name": "Allison Homes", "location": "Peterbrough", "sector": "Property / housebuilder", "type": "New business", "staff": 200, "website": "", "sageCode": "", "brief": "New Uniform", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_bd8038128e", "name": "Brilliant Hotel Goup", "location": "Chorley", "sector": "Hotels", "type": "New business", "staff": 150, "website": "", "sageCode": "", "brief": "9 hotels", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_5594046811", "name": "The Genturret Distillery", "location": "Perth", "sector": "Drinks & distillery", "type": "New business", "staff": 80, "website": "", "sageCode": "", "brief": "", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_55643241eb", "name": "Haven", "location": "41 sites", "sector": "Holiday parks", "type": "New business", "staff": 14000, "website": "", "sageCode": "", "brief": "Tender", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_3fba511198", "name": "The Cove", "location": "West Sussex", "sector": "Holiday parks", "type": "New business", "staff": 675, "website": "", "sageCode": "", "brief": "Tender coming out 2026", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_250005a0ee", "name": "The Vistry Group", "location": "Kent", "sector": "Property / housebuilder", "type": "New business", "staff": 4500, "website": "", "sageCode": "", "brief": "bovis homes , linden homes , countryside propeties)", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_c5f98ed9c2", "name": "Medacs", "location": "London & Manchester", "sector": "Healthcare", "type": "New business", "staff": 602, "website": "", "sageCode": "", "brief": "31 locations", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_2d06ed0871", "name": "Vertas Group Procurement", "location": "Suffolk", "sector": "Wholesale / distributor", "type": "New business", "staff": 5000, "website": "", "sageCode": "", "brief": "FM : https://vertas.co.uk", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_913baa43dd", "name": "Sygnet Healthcare", "location": "ME19 4AE.", "sector": "Healthcare", "type": "New business", "staff": 13000, "website": "", "sageCode": "", "brief": "www.cygnetgroup.com", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_262a222576", "name": "Colosseum Dental", "location": "UK", "sector": "Healthcare", "type": "New business", "staff": 850, "website": "", "sageCode": "", "brief": "www.colosseumdental.co.uk", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_89a33d26b8", "name": "Culina Group", "location": "Shropshire", "sector": "FM & logistics", "type": "New business", "staff": 22000, "website": "", "sageCode": "", "brief": "100 depots - www.culina.co.uk", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_09dbc9c07e", "name": "P&B Foods (Home of “Heera”)", "location": "Bradford", "sector": "Retail", "type": "New business", "staff": null, "website": "", "sageCode": "", "brief": "", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_cb1c0262ea", "name": "Creams Café", "location": "London", "sector": "Food service", "type": "New business", "staff": null, "website": "", "sageCode": "", "brief": "100 sites", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_e1ef34ab2b", "name": "Lovat Parks", "location": "Cornwall", "sector": "Holiday parks", "type": "New business", "staff": 185, "website": "", "sageCode": "", "brief": "14 Holiday Parks", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_689ca0e728", "name": "Newrest", "location": "Slough", "sector": "Food service", "type": "New business", "staff": 880, "website": "", "sageCode": "", "brief": "3 sites: London Heathrow, London Gatwick and Manchester", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_4605200ce4", "name": "Pavillion Clubs", "location": "London", "sector": "Clubs & spa", "type": "New business", "staff": 150, "website": "", "sageCode": "", "brief": "4 private members clubs", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_caabbba599", "name": "Travel Lodge", "location": "Oxon", "sector": "Hotels", "type": "New business", "staff": 12000, "website": "", "sageCode": "", "brief": "620 hotels", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_77749f9d2b", "name": "Wilderness Reserve", "location": "London", "sector": "Other", "type": "New business", "staff": 100, "website": "", "sageCode": "", "brief": "2 sites", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_65676f58da", "name": "Coyotaco", "location": "UK", "sector": "Food service", "type": "New business", "staff": null, "website": "", "sageCode": "", "brief": "New brand into UK .", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_cfdca4b27e", "name": "Fred Olsen Cruises", "location": "UK", "sector": "Travel & cruise", "type": "New business", "staff": 1200, "website": "", "sageCode": "", "brief": "1,200 staff", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_aa9cf2b548", "name": "Fullers Cotswold Inns", "location": "Chiswick", "sector": "Hotels", "type": "New business", "staff": 400, "website": "", "sageCode": "", "brief": "7 hotels", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_141690d730", "name": "Rocco Forte Hotels", "location": "Edinburgh", "sector": "Hotels", "type": "New business", "staff": 70, "website": "", "sageCode": "", "brief": "", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_03859a0484", "name": "TPS", "location": "", "sector": "Wholesale / distributor", "type": "New business", "staff": 1600, "website": "", "sageCode": "", "brief": "", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_530323885c", "name": "East Coast Concepts", "location": "Newcastle", "sector": "Other", "type": "New business", "staff": 250, "website": "", "sageCode": "", "brief": "", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_45660a1283", "name": "WV Howe", "location": "Bham", "sector": "Wholesale / distributor", "type": "New business", "staff": null, "website": "", "sageCode": "", "brief": "catering equipment supplier", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_6ef76fc6f7", "name": "Magna Foods", "location": "Hounslow", "sector": "Food service", "type": "New business", "staff": 120, "website": "", "sageCode": "", "brief": "Restaurant Chain, Roosters Piri Piri, 42 Locations", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_632f2f36d9", "name": "Lincoln Students' Union Trading Ltd", "location": "Lincoln", "sector": "Education", "type": "New business", "staff": null, "website": "", "sageCode": "LIN002", "brief": "", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_4529522bf0", "name": "Bar Supplies Essex", "location": "Essex", "sector": "Wholesale / distributor", "type": "New business", "staff": null, "website": "", "sageCode": "", "brief": "", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_48353ae18e", "name": "Ascot Wholesale", "location": "Hook", "sector": "Wholesale / distributor", "type": "New business", "staff": null, "website": "", "sageCode": "ASC001", "brief": "Wholesale", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_4ff899d86a", "name": "Ross Saftey", "location": "Aberdeen", "sector": "Wholesale / distributor", "type": "New business", "staff": null, "website": "", "sageCode": "ROS001", "brief": "", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_aa4bc6ae24", "name": "Clever Chefs", "location": "Cardiff", "sector": "Food service", "type": "New business", "staff": 750, "website": "", "sageCode": "", "brief": "", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_ef59887053", "name": "Radisson Blu", "location": "Liverpool", "sector": "Hotels", "type": "New business", "staff": 70, "website": "", "sageCode": "", "brief": "", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_2bdb929ffb", "name": "Rangeford Villages", "location": "Uxbridge", "sector": "Care homes", "type": "New business", "staff": 270, "website": "", "sageCode": "", "brief": "5 new locations coming soon", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_da781e3a31", "name": "Klarent Hospitality", "location": "Glasgow", "sector": "Other", "type": "New business", "staff": 150, "website": "", "sageCode": "", "brief": "", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_9bb7322dbe", "name": "Countrywide Hotels", "location": "", "sector": "Hotels", "type": "New business", "staff": 70, "website": "", "sageCode": "", "brief": "New Hotel Selwyn Richmond", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_8120a7665b", "name": "Sanctuary Group", "location": "Devon", "sector": "Other", "type": "New business", "staff": 25, "website": "", "sageCode": "", "brief": "", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_cfe853a5ef", "name": "St Peters Garden Centre", "location": "Worcester", "sector": "Retail", "type": "New business", "staff": 130, "website": "", "sageCode": "", "brief": "", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_fd8bbdf3c0", "name": "Tythrerington Club", "location": "Macclesfield", "sector": "Hotels", "type": "New business", "staff": null, "website": "", "sageCode": "", "brief": "Part of a group", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_5e0100ce59", "name": "Ashdown Park Hotel", "location": "East Sussex", "sector": "Hotels", "type": "New business", "staff": null, "website": "", "sageCode": "", "brief": "Spa", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "acc_8425b08dbd", "name": "Hiddenwell Spa", "location": "Moreton-in-Marsh, GL56 0JQ", "sector": "Clubs & spa", "type": "New business", "staff": 850, "website": "", "sageCode": "", "brief": "3 locations", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}], "contacts": [{"id": "con_1e50ecf414", "accountId": "acc_c7e5fede8c", "name": "laura Browne", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_50fbc01f34", "accountId": "acc_516ba1f9d7", "name": "Johnathan Walton", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_c7676b957c", "accountId": "acc_2282bf3e05", "name": "Kamila Wasak", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_bc703e6548", "accountId": "acc_25d10a8000", "name": "Kasha Wojcicka", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_6edb303815", "accountId": "acc_5cdc7a9ed0", "name": "Nikki Wilson", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_fbc16fb1b9", "accountId": "acc_7bf91e1dd7", "name": "Shab Ketheeswaran", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_321a686dd9", "accountId": "acc_bc15593638", "name": "Jo Lawlor", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_e3b50f6b67", "accountId": "acc_a8acb316b9", "name": "Syed", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_35619be12b", "accountId": "acc_4bfebc7f29", "name": "Michael Hudson", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_c7270b3f8a", "accountId": "acc_bd8038128e", "name": "Sreesha Bhaskar", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_b69996bf2b", "accountId": "acc_5594046811", "name": "Claude Millee", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_12422b7fc6", "accountId": "acc_55643241eb", "name": "Emily Chamberlain", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_7eba61aa1c", "accountId": "acc_3fba511198", "name": "Laura Jurczak", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_fcfcc19ae7", "accountId": "acc_250005a0ee", "name": "Kelly Higgins", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_3a421eff5f", "accountId": "acc_c5f98ed9c2", "name": "Katie Price", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_99e8828115", "accountId": "acc_2d06ed0871", "name": "Tom Barton", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_854a2f6b17", "accountId": "acc_913baa43dd", "name": "Marc Tough", "role": "Procurement Manager", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_93c93f399c", "accountId": "acc_262a222576", "name": "Amanda Finley", "role": "Senior People", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_99bc479b6b", "accountId": "acc_89a33d26b8", "name": "Richard Legate", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_84bedc84c3", "accountId": "acc_09dbc9c07e", "name": "Steve Stringer", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_cf9f920184", "accountId": "acc_cb1c0262ea", "name": "Max Wright", "role": "Group Head of Procurement & Supply Chain.", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_5044ef19b1", "accountId": "acc_e1ef34ab2b", "name": "Jo Tester", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_6e48b0d78d", "accountId": "acc_689ca0e728", "name": "Prashaani Paskaran", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_b69c99f2c0", "accountId": "acc_4605200ce4", "name": "Klaudia Barnat", "role": "BUILDING MANAGER FOR PAVILION CLUBS", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_8746eeecf0", "accountId": "acc_caabbba599", "name": "Allan McKell", "role": "Procurement Manager", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_4f2f317522", "accountId": "acc_77749f9d2b", "name": "Suffork", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_3ffd746550", "accountId": "acc_65676f58da", "name": "Nik Philippou", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_99944a46c2", "accountId": "acc_cfdca4b27e", "name": "Julie Davis", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_53f3ecd99e", "accountId": "acc_aa9cf2b548", "name": "Miles Selby", "role": "Procurement Contractor", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_acc52b94fb", "accountId": "acc_141690d730", "name": "Elena", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_ae698d5f7b", "accountId": "acc_03859a0484", "name": "Eva", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_924169063c", "accountId": "acc_530323885c", "name": "Nik skillicorn", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_bb96571d26", "accountId": "acc_45660a1283", "name": "Richard Morton", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_4891376f4d", "accountId": "acc_6ef76fc6f7", "name": "Carol", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_5a4d2b59c4", "accountId": "acc_632f2f36d9", "name": "Dan Davis", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_bc00b35336", "accountId": "acc_4529522bf0", "name": "Spencer Babb", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_f08156ab24", "accountId": "acc_48353ae18e", "name": "Sam Davis", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_90d2b115a8", "accountId": "acc_4ff899d86a", "name": "Richard Lumsden", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_a1da6a9e6d", "accountId": "acc_aa4bc6ae24", "name": "Tristan Smart", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_a6285815b3", "accountId": "acc_ef59887053", "name": "Jamie Howe", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_7494a197b3", "accountId": "acc_2bdb929ffb", "name": "David Kanarens", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_fcfe1f2a78", "accountId": "acc_da781e3a31", "name": "Kirstine Rowland", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_805fabe7c1", "accountId": "acc_9bb7322dbe", "name": "Mark Nesbitt", "role": "Regional Operations Director", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_23bfcf5e1a", "accountId": "acc_8120a7665b", "name": "Laura McColvin", "role": "Group Buyer", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_9d5a0d30fc", "accountId": "acc_cfe853a5ef", "name": "Robert Banks", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_b429b0be85", "accountId": "acc_fd8bbdf3c0", "name": "Sean Sutton", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_81bacce6b6", "accountId": "acc_5e0100ce59", "name": "Sharlene Goode", "role": "", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "con_cf949af2f8", "accountId": "acc_8425b08dbd", "name": "Andrew Steel", "role": "Head Of Procurement", "phone": "", "email": "", "primary": true, "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}], "opportunities": [{"id": "opp_c7e5fede8c", "accountId": "acc_c7e5fede8c", "title": "Uniform supply", "stage": "On hold", "probability": 50, "firstOrderValue": 30000, "annualValue": 50000, "expectedStart": "2027", "nextAction": "contact again october 2026", "nextActionDue": "2026-10-01", "wonDate": null, "lostReason": "", "holdUntil": "2026-10-01", "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_516ba1f9d7", "accountId": "acc_516ba1f9d7", "title": "Uniform supply", "stage": "On hold", "probability": 25, "firstOrderValue": 125000, "annualValue": 150000, "expectedStart": "2027", "nextAction": "re-visting w/c 5th", "nextActionDue": "2026-10-05", "wonDate": null, "lostReason": "", "holdUntil": "2026-10-05", "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_2282bf3e05", "accountId": "acc_2282bf3e05", "title": "Uniform supply", "stage": "Contacted", "probability": 50, "firstOrderValue": null, "annualValue": 200000, "expectedStart": "2026/2027", "nextAction": "No answer from email opr phone tryig again this week.", "nextActionDue": null, "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_25d10a8000", "accountId": "acc_25d10a8000", "title": "Uniform supply", "stage": "On hold", "probability": 50, "firstOrderValue": null, "annualValue": 250000, "expectedStart": "2027", "nextAction": "Contact again Early December 2026", "nextActionDue": "2026-12-01", "wonDate": null, "lostReason": "", "holdUntil": "2026-12-01", "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_5cdc7a9ed0", "accountId": "acc_5cdc7a9ed0", "title": "Uniform supply", "stage": "On hold", "probability": 25, "firstOrderValue": null, "annualValue": 200000, "expectedStart": "2026", "nextAction": "noy looking to change at present", "nextActionDue": null, "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_7bf91e1dd7", "accountId": "acc_7bf91e1dd7", "title": "Uniform supply", "stage": "Quoted", "probability": 25, "firstOrderValue": null, "annualValue": 50000, "expectedStart": "2027", "nextAction": "re-visting w/c 5th", "nextActionDue": "2026-10-05", "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_bc15593638", "accountId": "acc_bc15593638", "title": "Uniform supply", "stage": "Quoted", "probability": 50, "firstOrderValue": 1000, "annualValue": 20000, "expectedStart": "2026", "nextAction": "Requested an Update - Joanne on AL", "nextActionDue": null, "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_a8acb316b9", "accountId": "acc_a8acb316b9", "title": "Uniform supply", "stage": "Quoted", "probability": 25, "firstOrderValue": null, "annualValue": 20000, "expectedStart": "2026", "nextAction": "re-visting w/c 5th", "nextActionDue": "2026-10-05", "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_4bfebc7f29", "accountId": "acc_4bfebc7f29", "title": "Uniform supply", "stage": "Samples", "probability": 100, "firstOrderValue": 10000, "annualValue": 15000, "expectedStart": "2026", "nextAction": "re-visting w/c 5th", "nextActionDue": "2026-10-05", "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_bd8038128e", "accountId": "acc_bd8038128e", "title": "Uniform supply", "stage": "On hold", "probability": 90, "firstOrderValue": 20000, "annualValue": 40000, "expectedStart": "2026", "nextAction": "re-visting w/c 5th", "nextActionDue": "2026-10-05", "wonDate": null, "lostReason": "", "holdUntil": "2026-10-05", "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_5594046811", "accountId": "acc_5594046811", "title": "Uniform supply", "stage": "On hold", "probability": 50, "firstOrderValue": 6000, "annualValue": 8000, "expectedStart": "2027", "nextAction": "project on hold - call Jan 2027", "nextActionDue": "2027-01-01", "wonDate": null, "lostReason": "", "holdUntil": "2027-01-01", "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_55643241eb", "accountId": "acc_55643241eb", "title": "Uniform supply", "stage": "On hold", "probability": 15, "firstOrderValue": null, "annualValue": 200000, "expectedStart": "2027", "nextAction": "No responce call end september - also sent a design board for more ideas to prompt them", "nextActionDue": "2026-09-28", "wonDate": null, "lostReason": "", "holdUntil": "2026-09-28", "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_3fba511198", "accountId": "acc_3fba511198", "title": "Uniform supply", "stage": "Contacted", "probability": 10, "firstOrderValue": null, "annualValue": 150000, "expectedStart": "2027", "nextAction": "re-visting w/c 5th", "nextActionDue": "2026-10-05", "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_250005a0ee", "accountId": "acc_250005a0ee", "title": "Uniform supply", "stage": "Contacted", "probability": 25, "firstOrderValue": null, "annualValue": 250000, "expectedStart": "2027 Q3-Q4", "nextAction": "2027 Q3-Q4", "nextActionDue": null, "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_c5f98ed9c2", "accountId": "acc_c5f98ed9c2", "title": "Uniform supply", "stage": "Contacted", "probability": 25, "firstOrderValue": null, "annualValue": 5000, "expectedStart": "", "nextAction": "still waiting on card payment cloud from Ben", "nextActionDue": null, "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_2d06ed0871", "accountId": "acc_2d06ed0871", "title": "Uniform supply", "stage": "On hold", "probability": 10, "firstOrderValue": null, "annualValue": 25000, "expectedStart": "2027", "nextAction": "Contact again Feb 2027", "nextActionDue": "2027-02-01", "wonDate": null, "lostReason": "", "holdUntil": "2027-02-01", "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_913baa43dd", "accountId": "acc_913baa43dd", "title": "Uniform supply", "stage": "Contacted", "probability": 10, "firstOrderValue": 13000, "annualValue": 15000, "expectedStart": "2026", "nextAction": "2027", "nextActionDue": null, "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_262a222576", "accountId": "acc_262a222576", "title": "Uniform supply", "stage": "Contacted", "probability": 25, "firstOrderValue": null, "annualValue": 10000, "expectedStart": "2026", "nextAction": "Tried again sent email", "nextActionDue": null, "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_89a33d26b8", "accountId": "acc_89a33d26b8", "title": "Uniform supply", "stage": "Contacted", "probability": 10, "firstOrderValue": null, "annualValue": 25000, "expectedStart": "2026", "nextAction": "re-visting w/c 5th", "nextActionDue": "2026-10-05", "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_09dbc9c07e", "accountId": "acc_09dbc9c07e", "title": "Uniform supply", "stage": "Quoted", "probability": 25, "firstOrderValue": 1000, "annualValue": 5000, "expectedStart": "October", "nextAction": "re-visting w/c 5th", "nextActionDue": "2026-10-05", "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_cb1c0262ea", "accountId": "acc_cb1c0262ea", "title": "Uniform supply", "stage": "Quoted", "probability": 25, "firstOrderValue": 5000, "annualValue": 25000, "expectedStart": "", "nextAction": "Update from Max September 2026 - still not reviewed", "nextActionDue": "2026-09-01", "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_e1ef34ab2b", "accountId": "acc_e1ef34ab2b", "title": "Uniform supply", "stage": "Contacted", "probability": 10, "firstOrderValue": 5000, "annualValue": 25000, "expectedStart": "Oct 2026", "nextAction": "Contact October 2026", "nextActionDue": "2026-10-01", "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_689ca0e728", "accountId": "acc_689ca0e728", "title": "Uniform supply", "stage": "Account set-up", "probability": 100, "firstOrderValue": 2000, "annualValue": 10000, "expectedStart": "October", "nextAction": "Account set up", "nextActionDue": null, "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_4605200ce4", "accountId": "acc_4605200ce4", "title": "Uniform supply", "stage": "Contacted", "probability": 25, "firstOrderValue": 3000, "annualValue": 5000, "expectedStart": "October", "nextAction": "re-visting w/c 5th", "nextActionDue": "2026-10-05", "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_caabbba599", "accountId": "acc_caabbba599", "title": "Uniform supply", "stage": "Contacted", "probability": 10, "firstOrderValue": null, "annualValue": null, "expectedStart": "", "nextAction": "2028", "nextActionDue": null, "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_77749f9d2b", "accountId": "acc_77749f9d2b", "title": "Uniform supply", "stage": "Account set-up", "probability": 80, "firstOrderValue": 5000, "annualValue": 8000, "expectedStart": "", "nextAction": "re-visting w/c 5th", "nextActionDue": "2026-10-05", "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_65676f58da", "accountId": "acc_65676f58da", "title": "Uniform supply", "stage": "Contacted", "probability": 50, "firstOrderValue": 1000, "annualValue": 10000, "expectedStart": "Chased response - do not have his telephone number", "nextAction": "re-visting w/c 5th", "nextActionDue": "2026-10-05", "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_cfdca4b27e", "accountId": "acc_cfdca4b27e", "title": "Uniform supply", "stage": "Contacted", "probability": 10, "firstOrderValue": null, "annualValue": null, "expectedStart": "2027", "nextAction": "The last I heard from our Director was that she was getting a designer in but other than that I have no news", "nextActionDue": null, "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_aa9cf2b548", "accountId": "acc_aa9cf2b548", "title": "Uniform supply", "stage": "Account set-up", "probability": 99, "firstOrderValue": 10000, "annualValue": 35000, "expectedStart": "October", "nextAction": "Call this week with Ian & Jacksons", "nextActionDue": null, "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:30:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:30:00.000Z", "updatedBy": "Import"}, {"id": "opp_141690d730", "accountId": "acc_141690d730", "title": "Uniform supply", "stage": "Contacted", "probability": 50, "firstOrderValue": null, "annualValue": 25000, "expectedStart": "October", "nextAction": "re-visting w/c 5th", "nextActionDue": "2026-10-05", "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_03859a0484", "accountId": "acc_03859a0484", "title": "Uniform supply", "stage": "Quoted", "probability": null, "firstOrderValue": null, "annualValue": null, "expectedStart": "", "nextAction": "re-visting w/c 5th", "nextActionDue": "2026-10-05", "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_530323885c", "accountId": "acc_530323885c", "title": "Uniform supply", "stage": "Samples", "probability": 80, "firstOrderValue": 5000, "annualValue": 15000, "expectedStart": "October", "nextAction": "re-visting w/c 5th", "nextActionDue": "2026-10-05", "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_45660a1283", "accountId": "acc_45660a1283", "title": "Uniform supply", "stage": "Contacted", "probability": null, "firstOrderValue": null, "annualValue": null, "expectedStart": "", "nextAction": "re-visting w/c 5th", "nextActionDue": "2026-10-05", "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_6ef76fc6f7", "accountId": "acc_6ef76fc6f7", "title": "Uniform supply", "stage": "Contacted", "probability": 50, "firstOrderValue": 15000, "annualValue": 15000, "expectedStart": "October", "nextAction": "Now changing brand & logo waiting on new detials - still no update", "nextActionDue": null, "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_632f2f36d9", "accountId": "acc_632f2f36d9", "title": "Uniform supply", "stage": "Won", "probability": 100, "firstOrderValue": 1000, "annualValue": null, "expectedStart": "October", "nextAction": "Account open LIN002.", "nextActionDue": null, "wonDate": "2026-10-05", "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_4529522bf0", "accountId": "acc_4529522bf0", "title": "Uniform supply", "stage": "Quoted", "probability": 90, "firstOrderValue": null, "annualValue": null, "expectedStart": "October", "nextAction": "re-visting w/c 5th", "nextActionDue": "2026-10-05", "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_48353ae18e", "accountId": "acc_48353ae18e", "title": "Uniform supply", "stage": "Won", "probability": 100, "firstOrderValue": 1200, "annualValue": null, "expectedStart": "", "nextAction": "ASC001", "nextActionDue": null, "wonDate": "2026-10-05", "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_4ff899d86a", "accountId": "acc_4ff899d86a", "title": "Uniform supply", "stage": "Won", "probability": 100, "firstOrderValue": null, "annualValue": 10000, "expectedStart": "October", "nextAction": "ON AL", "nextActionDue": null, "wonDate": "2026-10-05", "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_aa4bc6ae24", "accountId": "acc_aa4bc6ae24", "title": "Uniform supply", "stage": "Contacted", "probability": null, "firstOrderValue": null, "annualValue": null, "expectedStart": "2026", "nextAction": "pick back up mid october", "nextActionDue": "2026-10-15", "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_ef59887053", "accountId": "acc_ef59887053", "title": "Uniform supply", "stage": "Contacted", "probability": null, "firstOrderValue": null, "annualValue": null, "expectedStart": "October", "nextAction": "re-visting w/c 5th", "nextActionDue": "2026-10-05", "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_2bdb929ffb", "accountId": "acc_2bdb929ffb", "title": "Uniform supply", "stage": "Quoted", "probability": 70, "firstOrderValue": 35000, "annualValue": 45000, "expectedStart": "October/Nov", "nextAction": "still under review", "nextActionDue": "2026-10-21", "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:30:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:30:00.000Z", "updatedBy": "Import"}, {"id": "opp_da781e3a31", "accountId": "acc_da781e3a31", "title": "Uniform supply", "stage": "Quoted", "probability": 25, "firstOrderValue": null, "annualValue": null, "expectedStart": "2027", "nextAction": "chased range detials", "nextActionDue": null, "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_9bb7322dbe", "accountId": "acc_9bb7322dbe", "title": "Uniform supply", "stage": "Quoted", "probability": 50, "firstOrderValue": 5000, "annualValue": 15000, "expectedStart": "October", "nextAction": "see if any update 25th September", "nextActionDue": "2026-09-25", "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_8120a7665b", "accountId": "acc_8120a7665b", "title": "Uniform supply", "stage": "Samples", "probability": 50, "firstOrderValue": 1000, "annualValue": null, "expectedStart": "October", "nextAction": "Requested samples of plum, navy and black Behrens tunics for review", "nextActionDue": null, "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:30:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:30:00.000Z", "updatedBy": "Import"}, {"id": "opp_cfe853a5ef", "accountId": "acc_cfe853a5ef", "title": "Uniform supply", "stage": "Quoted", "probability": 50, "firstOrderValue": 5000, "annualValue": 15000, "expectedStart": "2027", "nextAction": "re-visting w/c 5th", "nextActionDue": "2026-10-05", "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:00:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:00:00.000Z", "updatedBy": "Import"}, {"id": "opp_fd8bbdf3c0", "accountId": "acc_fd8bbdf3c0", "title": "Uniform supply", "stage": "Account set-up", "probability": 50, "firstOrderValue": null, "annualValue": null, "expectedStart": "October", "nextAction": "Setting up an account for Tibard", "nextActionDue": null, "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:30:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:30:00.000Z", "updatedBy": "Import"}, {"id": "opp_5e0100ce59", "accountId": "acc_5e0100ce59", "title": "Uniform supply", "stage": "Samples", "probability": 25, "firstOrderValue": null, "annualValue": null, "expectedStart": "Nov", "nextAction": "Sending a sample of plum this week", "nextActionDue": null, "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:30:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:30:00.000Z", "updatedBy": "Import"}, {"id": "opp_8425b08dbd", "accountId": "acc_8425b08dbd", "title": "Uniform supply", "stage": "Contacted", "probability": 25, "firstOrderValue": null, "annualValue": null, "expectedStart": "2027", "nextAction": "Teams call set 9th October", "nextActionDue": "2026-10-09", "wonDate": null, "lostReason": "", "holdUntil": null, "imported": true, "lastActivityAt": "2026-10-05T09:30:00.000Z", "createdAt": "2026-10-05T09:00:00.000Z", "createdBy": "Import", "updatedAt": "2026-10-05T09:30:00.000Z", "updatedBy": "Import"}], "activities": [{"id": "act_ed3ed38055", "oppId": "opp_c7e5fede8c", "accountId": "acc_c7e5fede8c", "type": "Note", "note": "07/01/2026 Not looking at this for 2026 !", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_688a1d30d2", "oppId": "opp_516ba1f9d7", "accountId": "acc_516ba1f9d7", "type": "Note", "note": "Not looking To Tender until 2027", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_3adaf392fc", "oppId": "opp_2282bf3e05", "accountId": "acc_2282bf3e05", "type": "Note", "note": "Meeting went very well,full intro on Tibard they don’t know what they want as a uniform , they will come back to me with next steps", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_bbaca56a31", "oppId": "opp_25d10a8000", "accountId": "acc_25d10a8000", "type": "Note", "note": "quoted on suiting -looking to move from DCC under review -18/11 spoken with Kasha unfortunaly uniforms have been pushed back to early next year as they have been dealing with a new procurment system. Still not in a positon to look at uniforms - requested call early december", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_93f7a008e8", "oppId": "opp_5cdc7a9ed0", "accountId": "acc_5cdc7a9ed0", "type": "Note", "note": "On hold", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_2b85a85356", "oppId": "opp_7bf91e1dd7", "accountId": "acc_7bf91e1dd7", "type": "Note", "note": "Provided Shab with prices for current uniform - we will be included in the tender for 2026 - Not in the pipeline as yet", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_e743d29975", "oppId": "opp_bc15593638", "accountId": "acc_bc15593638", "type": "Note", "note": "Quoted on existing uniform - This is still under review - they sound like they have lots of stock.", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_3c29c90ea2", "oppId": "opp_a8acb316b9", "accountId": "acc_a8acb316b9", "type": "Note", "note": "Provided Syed with options and pricing , poloshirts , fleeces, tunics , chef wear . Syed is reviewing this , this week with the manager", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_d22e6f3032", "oppId": "opp_4bfebc7f29", "accountId": "acc_4bfebc7f29", "type": "Note", "note": "range nearly completed - sending furher samples - requested a teams call to get the project moving", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_253f0c979b", "oppId": "opp_bd8038128e", "accountId": "acc_bd8038128e", "type": "Note", "note": "produced design boards and go back with actual range samples for sign off. Roll out of reception and F&B to all hotels 20/04 Now on hold until later on this year - call again in september.", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_d9eaaf0a21", "oppId": "opp_5594046811", "accountId": "acc_5594046811", "type": "Note", "note": "Uniform re-fresh all staff FOH - Sent over ideas an also Brook Tavener brochure . He has 6k budget so he is looking for very high end. Relooking at the daytime uniform offer and will come back to me as soon as they have an idea.", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_e41eecadb5", "oppId": "opp_55643241eb", "accountId": "acc_55643241eb", "type": "Note", "note": "Spoken with Emily , they are staying with incumbant for this season as they ran out of time to proceed with the Tender process , they are going to consolidate the range and then go back to Tender for 2027", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_6bb6a0c2fe", "oppId": "opp_3fba511198", "accountId": "acc_3fba511198", "type": "Note", "note": "Tender coming up 2026 - in administration stablising the business before going to tender.", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_fefba7eaa1", "oppId": "opp_250005a0ee", "accountId": "acc_250005a0ee", "type": "Note", "note": "Clare Chittock Group Procurement Manager asked to reach out Q3 2027", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_613af6fe87", "oppId": "opp_c5f98ed9c2", "accountId": "acc_c5f98ed9c2", "type": "Note", "note": "Ben had updated me that we can start taking card payments on cloud within the next 8 weeks , Updated Katie and is very interested in this , we must go back to her when this is live.", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_5046021322", "oppId": "opp_2d06ed0871", "accountId": "acc_2d06ed0871", "type": "Note", "note": "In contract for another 2 years , spoken with Tom who has added us in a supplier file , if anything changes or tender comes up early - he will be in touch", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_a4b9c5d5f8", "oppId": "opp_913baa43dd", "accountId": "acc_913baa43dd", "type": "Note", "note": "Marc responded to my email - registered on their supplier portal - once reviewed if they need our services they wil be in contact for opportunities", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_f94910080f", "oppId": "opp_262a222576", "accountId": "acc_262a222576", "type": "Note", "note": "Contact Amanda Q2 2026 to look into Receptionist / Patient Coordinators uniform - tried calling and email- no response try again", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_186fbbac55", "oppId": "opp_89a33d26b8", "accountId": "acc_89a33d26b8", "type": "Note", "note": "Richard was NRS now culina - contacted each other linkedin, uniforms will be on his radar 2026 , he will be in touch - both keep in touch", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_ae265322d5", "oppId": "opp_09dbc9c07e", "accountId": "acc_09dbc9c07e", "type": "Note", "note": "Steve presented w/c 6th April - Tibard is recommendation for uniform- meeting went well we will hear more next month. Steve is chasing an update 30th June", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_9b1889b1ea", "oppId": "opp_cb1c0262ea", "accountId": "acc_cb1c0262ea", "type": "Note", "note": "re--submitting new boards and colours with indicative pricing .", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_8a5a40bf46", "oppId": "opp_e1ef34ab2b", "accountId": "acc_e1ef34ab2b", "type": "Note", "note": "Jo would like me to contact her on October to discuss 2027 uniform", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_0dbd6a4b69", "oppId": "opp_689ca0e728", "accountId": "acc_689ca0e728", "type": "Note", "note": "Range completed - setting up new accounts - PO will start 1st October - LS to build cloud in the meantime", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_f0bf2f0af0", "oppId": "opp_4605200ce4", "accountId": "acc_4605200ce4", "type": "Note", "note": "Thank you for reaching out to us at Pavilion, we'd love to hear more about Tibard and to explore potential opportunities for a new uniform for our club.We would be looking for uniform specifically for our FOH and potentially management team.", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_b5007d12aa", "oppId": "opp_caabbba599", "accountId": "acc_caabbba599", "type": "Note", "note": "emailed procurement@travelodge.co.uk to register your company as interested in working with Travelodge. Your details will then be logged and someone will reach out when a uniform is next reviewed.", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_71778a4d8f", "oppId": "opp_77749f9d2b", "accountId": "acc_77749f9d2b", "type": "Note", "note": "Receive the uniform brief for all areas - visual boards and prices. Like our range - setting up new account", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_66d0b1ae67", "oppId": "opp_65676f58da", "accountId": "acc_65676f58da", "type": "Note", "note": "Received the info from Nik , he knows me from setting up Wendys - new site June and 3 more by october - I do not have his telephone number", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_ea0b195e8e", "oppId": "opp_cfdca4b27e", "accountId": "acc_cfdca4b27e", "type": "Note", "note": "Julie will be doing a review of the uniforms- she is just waiitng on detials of this and will come back to me .", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_d9eb124f99", "oppId": "opp_aa9cf2b548", "accountId": "acc_aa9cf2b548", "type": "Note", "note": "new account is being set up waiting on form , Nick would like samples and branded samples - waiting on form and list of sizes", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_e897cedd52", "oppId": "opp_141690d730", "accountId": "acc_141690d730", "type": "Note", "note": "Teams call using florence roby - Send over ideas - this is the Balmoral in edinburgh - hopefully my in to the group", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_53b5fbd0c5", "oppId": "opp_03859a0484", "accountId": "acc_03859a0484", "type": "Note", "note": "submitted new pricing and lead times", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_3e9190cc8a", "oppId": "opp_530323885c", "accountId": "acc_530323885c", "type": "Note", "note": "re-jigged the boards - sent over new account form for samples to be sent", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_8dbecd9084", "oppId": "opp_45660a1283", "accountId": "acc_45660a1283", "type": "Note", "note": "Received the list of products ,provided chef wear - he has contracts in prisons to supply chef wear", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_8e85c3a79e", "oppId": "opp_6ef76fc6f7", "accountId": "acc_6ef76fc6f7", "type": "Note", "note": "Looking for a new uniform - one drop order 800 T-shirts - 200 aprons - 100 hats", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_733f268346", "oppId": "opp_632f2f36d9", "accountId": "acc_632f2f36d9", "type": "Note", "note": "Looking for chef Wear ( 80 pieces ) , them moving onto Bar and PPE .Completed new supplier form there end, Waitng on any further actions", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_b6cad08cf8", "oppId": "opp_4529522bf0", "accountId": "acc_4529522bf0", "type": "Note", "note": "Spencer looking for a new supplier - use Uropa - sent ober Trade Price list and imergy", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_e8de7bf9ae", "oppId": "opp_48353ae18e", "accountId": "acc_48353ae18e", "type": "Note", "note": "Started ordering from us", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_5e39397bf3", "oppId": "opp_4ff899d86a", "accountId": "acc_4ff899d86a", "type": "Note", "note": "ROS001", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_9bc7632824", "oppId": "opp_aa4bc6ae24", "accountId": "acc_aa4bc6ae24", "type": "Note", "note": "not reviewed my information yet , september is a busy month, he will be back in touch in october", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_93779d67dd", "oppId": "opp_ef59887053", "accountId": "acc_ef59887053", "type": "Note", "note": "Currently laundry rental - looking to purchase chef wear provided quotes and he will be takng to the FD", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_02f7cf68d9", "oppId": "opp_2bdb929ffb", "accountId": "acc_2bdb929ffb", "type": "Note", "note": "build 5* retirement villages - looking for new supplier as they have out grown current - had a fantastic call with Richard , received current spec - very dated and basic - Di going to a meeting for me whilst I am on AL as he did wish to see someone and see the villages - meeting 9th September Cotswold - Di will then relay all the detials for me to supply boards and ideas", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_8490856982", "oppId": "opp_da781e3a31", "accountId": "acc_da781e3a31", "type": "Note", "note": "Great call before my AL, sent over example desigm boards , Kirstine sending over current range for me to explore", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_1faa8aab0e", "oppId": "opp_9bb7322dbe", "accountId": "acc_9bb7322dbe", "type": "Note", "note": "Submitted pricing per deparment per wearer - mark is now going to get approval for the costs to place the order", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_51b410da6c", "oppId": "opp_8120a7665b", "accountId": "acc_8120a7665b", "type": "Note", "note": "Looking for a new uniform for the devon location , sent over options to matc the brief for style and colour , waiting on feed back to supply pricing , this could be a good foot in the door", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_e2336d07b0", "oppId": "opp_cfe853a5ef", "accountId": "acc_cfe853a5ef", "type": "Note", "note": "Looking for a new uniform , 1st deparment catering submitted boards & prices", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_8aa7b0cecc", "oppId": "opp_fd8bbdf3c0", "accountId": "acc_fd8bbdf3c0", "type": "Note", "note": "premier country club looking to come away from stalbridge and buy wear , bigger opportunity here as part of The Club Company 8 hotels and country club - meeting Tuesday 29th", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_f6fab328bb", "oppId": "opp_5e0100ce59", "accountId": "acc_5e0100ce59", "type": "Note", "note": "Part of Eite Hotels looking for new spa uniform", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_f8e8d0ec6c", "oppId": "opp_8425b08dbd", "accountId": "acc_8425b08dbd", "type": "Note", "note": "sourcing review in Q2 2027.Teams call to understand Tibard & services", "at": "2026-10-05T09:00:00.000Z", "by": "Lindsay Smith", "source": "Imported from pipeline sheet"}, {"id": "act_27ff4e04e8", "oppId": "opp_2bdb929ffb", "accountId": "acc_2bdb929ffb", "type": "Note", "note": "Amends made to all boards - still some to email over - they are reviewing this week — Next: still under review", "at": "2026-10-05T09:30:00.000Z", "by": "Lindsay Smith", "source": "Imported from W/C 5 Oct sheet"}, {"id": "act_4565874017", "oppId": "opp_aa9cf2b548", "accountId": "acc_aa9cf2b548", "type": "Note", "note": "Looking very very good , call with jacksons this week to go through distributor commercials — Next: Call this week with Ian & Jacksons", "at": "2026-10-05T09:30:00.000Z", "by": "Lindsay Smith", "source": "Imported from W/C 5 Oct sheet"}, {"id": "act_37f76486bc", "oppId": "opp_fd8bbdf3c0", "accountId": "acc_fd8bbdf3c0", "type": "Note", "note": "Bigger picture here , 17 sites and looking to benchmark range and also potencially supply chef wear to all sites ? — Next: Setting up an account for Tibard", "at": "2026-10-05T09:30:00.000Z", "by": "Lindsay Smith", "source": "Imported from W/C 5 Oct sheet"}, {"id": "act_f45e5d6f7c", "oppId": "opp_8120a7665b", "accountId": "acc_8120a7665b", "type": "Note", "note": "Vivant Care is a premium care concept part of Sanctury Group- great foot in the door ! — Next: Requested samples of plum, navy and black Behrens tunics for review", "at": "2026-10-05T09:30:00.000Z", "by": "Lindsay Smith", "source": "Imported from W/C 5 Oct sheet"}, {"id": "act_8ad3baede4", "oppId": "opp_5e0100ce59", "accountId": "acc_5e0100ce59", "type": "Note", "note": "Part of Eite Hotels looking for new spa uniform - foot in the door of the group — Next: Sending a sample of plum this week", "at": "2026-10-05T09:30:00.000Z", "by": "Lindsay Smith", "source": "Imported from W/C 5 Oct sheet"}, {"id": "act_026fc40e48", "oppId": "opp_8425b08dbd", "accountId": "acc_8425b08dbd", "type": "Note", "note": "sourcing review in Q2 2027.Teams call to understand Tibard & services — Next: Teams call set 9th October", "at": "2026-10-05T09:30:00.000Z", "by": "Lindsay Smith", "source": "Imported from W/C 5 Oct sheet"}]}, "di": {"owner": "Di Buckley", "ownerKey": "di", "updatedAt": "2026-10-05T09:00:00.000Z", "accounts": [], "contacts": [], "opportunities": [], "activities": []}, "tenders": {"updatedAt": "2026-10-05T09:00:00.000Z", "tenders": [], "activities": []}};   // {lindsay:{...}, di:{...}, tenders:{...}} used for local mode / first run
+
+/* ---------- tiny helpers ---------- */
+function $(id){ return document.getElementById(id); }
+function h(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function uid(p){ return (p||'id') + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function nowISO(){ return new Date().toISOString(); }
+function today(){ var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
+function pad(n){ return (n < 10 ? '0' : '') + n; }
+function money(n){ if (n == null || n === '' || isNaN(n)) return '—'; n = Math.round(+n); return '£' + n.toLocaleString('en-GB'); }
+function moneyK(n){ if (n == null || isNaN(n)) return '—'; n = +n; if (Math.abs(n) >= 1000000) return '£' + (n/1000000).toFixed(2).replace(/0$/, '') + 'm'; if (Math.abs(n) >= 1000) return '£' + (n/1000).toFixed(n >= 100000 ? 0 : 1).replace(/\.0$/, '') + 'k'; return '£' + Math.round(n); }
+function fmtDate(iso){ if (!iso) return '—'; var d = new Date(iso.length === 10 ? iso + 'T00:00:00' : iso); if (isNaN(d)) return iso; return pad(d.getDate()) + '/' + pad(d.getMonth()+1) + '/' + d.getFullYear(); }
+function fmtDT(iso){ if (!iso) return ''; var d = new Date(iso); if (isNaN(d)) return iso; return fmtDate(iso) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+function rel(iso){ if (!iso) return ''; var ms = Date.now() - new Date(iso).getTime(); var d = Math.floor(ms / 86400000); if (d <= 0) return 'today'; if (d === 1) return 'yesterday'; if (d < 30) return d + 'd ago'; if (d < 365) return Math.floor(d/30) + 'mo ago'; return Math.floor(d/365) + 'y ago'; }
+function daysUntil(ymd){ if (!ymd) return null; var t = new Date(today() + 'T00:00:00'), d = new Date(ymd + 'T00:00:00'); return Math.round((d - t) / 86400000); }
+function dueClass(ymd){ var n = daysUntil(ymd); if (n == null) return ''; if (n < 0) return 'over'; if (n <= 7) return 'soon'; return 'ok'; }
+function dueLabel(ymd){ var n = daysUntil(ymd); if (n == null) return ''; if (n < 0) return (-n) + 'd overdue'; if (n === 0) return 'today'; if (n === 1) return 'tomorrow'; return 'in ' + n + 'd'; }
+function num(v){ if (v === '' || v == null) return null; var n = +String(v).replace(/[£,\s]/g, ''); return isNaN(n) ? null : n; }
+function by(k, dir){ return function(a, b){ var x = a[k], y = b[k]; if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1; return (x < y ? -1 : x > y ? 1 : 0) * (dir === 'desc' ? -1 : 1); }; }
+function toast(msg, ms){ var t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(function(){ t.classList.remove('show'); }, ms || 2200); }
+function copyText(s){ try { navigator.clipboard.writeText(s); toast('Copied'); } catch(e){ prompt('Copy this:', s); } }
+function weekEnd(){ var d = new Date(today() + 'T00:00:00'); var dow = (d.getDay() + 6) % 7; d.setDate(d.getDate() + (6 - dow)); return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
+function fyStart(){ var m = (S.cfg.fyStartMonth || 2) - 1, d = new Date(); var y = d.getMonth() >= m ? d.getFullYear() : d.getFullYear() - 1; return new Date(y, m, 1).toISOString(); }
+function fyLabel(){ var s = new Date(fyStart()); return 'FY ' + s.getFullYear() + '/' + String(s.getFullYear() + 1).slice(2); }
+
+/* ---------- SHA-256 (sync, works on file:// too) ---------- */
+function sha256(ascii){
+  function rr(v, a){ return (v >>> a) | (v << (32 - a)); }
+  var mathPow = Math.pow, maxWord = mathPow(2, 32), i, j, result = '';
+  var words = [], asciiBitLength = ascii.length * 8;
+  var hash = sha256.h = sha256.h || [], k = sha256.k = sha256.k || [], primeCounter = k.length;
+  var isComposite = {};
+  for (var candidate = 2; primeCounter < 64; candidate++) {
+    if (!isComposite[candidate]) {
+      for (i = 0; i < 313; i += candidate) isComposite[i] = candidate;
+      hash[primeCounter] = (mathPow(candidate, .5) * maxWord) | 0;
+      k[primeCounter++] = (mathPow(candidate, 1/3) * maxWord) | 0;
+    }
+  }
+  ascii += '\x80';
+  while (ascii.length % 64 - 56) ascii += '\x00';
+  for (i = 0; i < ascii.length; i++) { j = ascii.charCodeAt(i); if (j >> 8) return; words[i >> 2] |= j << ((3 - i) % 4) * 8; }
+  words[words.length] = ((asciiBitLength / maxWord) | 0); words[words.length] = (asciiBitLength);
+  for (j = 0; j < words.length;) {
+    var w = words.slice(j, j += 16), oldHash = hash; hash = hash.slice(0, 8);
+    for (i = 0; i < 64; i++) {
+      var w15 = w[i - 15], w2 = w[i - 2], a = hash[0], e = hash[4];
+      var temp1 = hash[7] + (rr(e, 6) ^ rr(e, 11) ^ rr(e, 25)) + ((e & hash[5]) ^ ((~e) & hash[6])) + k[i]
+        + (w[i] = (i < 16) ? w[i] : (w[i - 16] + (rr(w15, 7) ^ rr(w15, 18) ^ (w15 >>> 3)) + w[i - 7] + (rr(w2, 17) ^ rr(w2, 19) ^ (w2 >>> 10))) | 0);
+      var temp2 = (rr(a, 2) ^ rr(a, 13) ^ rr(a, 22)) + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+      hash = [(temp1 + temp2) | 0].concat(hash); hash[4] = (hash[4] + temp1) | 0;
+    }
+    for (i = 0; i < 8; i++) hash[i] = (hash[i] + oldHash[i]) | 0;
+  }
+  for (i = 0; i < 8; i++) for (j = 3; j + 1; j--) { var b = (hash[i] >> (j * 8)) & 255; result += ((b < 16) ? 0 : '') + b.toString(16); }
+  return result;
+}
+
+/* ---------- state ---------- */
+var S = {
+  mode: 'local', token: '', repo: DEFAULTS.DATA_REPO, branch: DEFAULTS.BRANCH,
+  cfg: null, data: {}, tenders: null, shas: {}, missing: {},
+  user: null, tab: 'kpi', view: {}, filters: {}, period: 'month', loading: false, error: ''
+};
+var LS = { get: function(k){ try { return localStorage.getItem('crm.' + k); } catch(e){ return null; } }, set: function(k, v){ try { localStorage.setItem('crm.' + k, v); } catch(e){} }, del: function(k){ try { localStorage.removeItem('crm.' + k); } catch(e){} } };
+var SS = { get: function(k){ try { return sessionStorage.getItem('crm.' + k); } catch(e){ return null; } }, set: function(k, v){ try { sessionStorage.setItem('crm.' + k, v); } catch(e){} }, del: function(k){ try { sessionStorage.removeItem('crm.' + k); } catch(e){} } };
+
+function emptyRep(u){ return { owner: u.name, ownerKey: u.key, updatedAt: nowISO(), accounts: [], contacts: [], opportunities: [], activities: [] }; }
+function emptyTenders(){ return { updatedAt: nowISO(), tenders: [], activities: [] }; }
+function repUsers(){ return S.cfg.users.filter(function(u){ return u.file; }); }
+function userByKey(k){ return S.cfg.users.filter(function(u){ return u.key === k; })[0]; }
+
+/* ---------- GitHub Contents API ---------- */
+var GH = {
+  url: function(path){ return 'https://api.github.com/repos/' + S.repo + '/contents/' + path + '?ref=' + encodeURIComponent(S.branch) + '&_=' + Date.now(); },
+  headers: function(){ return { 'Authorization': 'Bearer ' + S.token, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }; },
+  b64dec: function(b64){ var bin = atob(b64.replace(/\n/g, '')); var bytes = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i); return new TextDecoder().decode(bytes); },
+  b64enc: function(str){ var bytes = new TextEncoder().encode(str); var bin = ''; for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]); return btoa(bin); },
+  get: function(path){
+    return fetch(GH.url(path), { headers: GH.headers(), cache: 'no-store' }).then(function(r){
+      if (r.status === 404) return { missing: true };
+      if (!r.ok) return r.text().then(function(t){ throw new Error('GitHub ' + r.status + ' reading ' + path + (r.status === 401 ? ' — token invalid or expired' : r.status === 403 ? ' — token has no access to ' + S.repo : '')); });
+      return r.json().then(function(j){
+        if (j.content) return { sha: j.sha, json: JSON.parse(GH.b64dec(j.content)) };
+        // >1MB: fetch blob
+        return fetch('https://api.github.com/repos/' + S.repo + '/git/blobs/' + j.sha, { headers: GH.headers(), cache: 'no-store' }).then(function(b){ return b.json(); }).then(function(b){ return { sha: j.sha, json: JSON.parse(GH.b64dec(b.content)) }; });
+      });
+    });
+  },
+  put: function(path, obj, sha, msg){
+    var body = { message: msg || ('Update ' + path), content: GH.b64enc(JSON.stringify(obj, null, 1)), branch: S.branch };
+    if (sha) body.sha = sha;
+    return fetch('https://api.github.com/repos/' + S.repo + '/contents/' + path, { method: 'PUT', headers: GH.headers(), body: JSON.stringify(body) }).then(function(r){
+      if (r.status === 409 || r.status === 422) { var e = new Error('conflict'); e.conflict = true; throw e; }
+      if (!r.ok) return r.text().then(function(t){ throw new Error('GitHub ' + r.status + ' saving ' + path + (r.status === 403 || r.status === 401 ? ' — token cannot write to ' + S.repo : '') ); });
+      return r.json();
+    }).then(function(j){ return j.content.sha; });
+  }
+};
+
+/* ---------- storage facade (github | local) ---------- */
+function setSync(cls, txt){ var s = $('sync'); s.querySelector('i').className = cls; $('syncTxt').textContent = txt; }
+
+function readFile(path, fallback){
+  if (S.mode === 'github') {
+    return GH.get(path).then(function(r){ if (r.missing) { S.missing[path] = true; return fallback; } S.shas[path] = r.sha; delete S.missing[path]; return r.json; });
+  }
+  var raw = LS.get('file.' + path);
+  return Promise.resolve(raw ? JSON.parse(raw) : fallback);
+}
+function writeFile(path, obj, msg){
+  obj.updatedAt = nowISO();
+  if (S.mode === 'github') {
+    return GH.put(path, obj, S.shas[path], msg).then(function(sha){ S.shas[path] = sha; delete S.missing[path]; });
+  }
+  LS.set('file.' + path, JSON.stringify(obj));
+  return Promise.resolve();
+}
+
+/* merge a remote copy into local (record-level, newest updatedAt wins; activities union) */
+function mergeRep(local, remote){
+  ['accounts', 'contacts', 'opportunities', 'tenders'].forEach(function(c){
+    if (!remote[c]) return; local[c] = local[c] || [];
+    var byId = {}; local[c].forEach(function(r){ byId[r.id] = r; });
+    remote[c].forEach(function(r){ var l = byId[r.id]; if (!l) local[c].push(r); else if ((r.updatedAt || '') > (l.updatedAt || '')) Object.assign(l, r); });
+  });
+  if (remote.activities) { var ids = {}; (local.activities = local.activities || []).forEach(function(a){ ids[a.id] = 1; }); remote.activities.forEach(function(a){ if (!ids[a.id]) local.activities.push(a); }); }
+  return local;
+}
+
+function pathFor(key){ if (key === 'tenders') return DEFAULTS.TENDERS_PATH; if (key === 'config') return DEFAULTS.CONFIG_PATH; var u = userByKey(key); return u && u.file; }
+function objFor(key){ if (key === 'tenders') return S.tenders; if (key === 'config') return S.cfg; return S.data[key]; }
+
+var saveQ = Promise.resolve();
+function save(key, msg){
+  var path = pathFor(key);
+  saveQ = saveQ.then(function(){
+    setSync('busy', 'saving…');
+    var attempt = function(n){
+      return writeFile(path, objFor(key), msg).catch(function(e){
+        if (e.conflict && n < 3) {
+          return GH.get(path).then(function(r){ if (!r.missing) { S.shas[path] = r.sha; mergeRep(objFor(key), r.json); } return attempt(n + 1); });
+        }
+        throw e;
+      });
+    };
+    return attempt(0).then(function(){ setSync(S.mode === 'github' ? 'ok' : 'local', S.mode === 'github' ? 'saved ' + new Date().toTimeString().slice(0, 5) : 'local only'); toast('Saved'); })
+      .catch(function(e){ setSync('err', 'save failed'); S.error = e.message; render(); alert('Save failed: ' + e.message); });
+  });
+  return saveQ;
+}
+
+function loadAll(){
+  S.loading = true; S.error = '';
+  setSync(S.mode === 'github' ? 'busy' : 'local', S.mode === 'github' ? 'loading…' : 'local only');
+  return readFile(DEFAULTS.CONFIG_PATH, null).then(function(cfg){
+    S.cfg = cfg || JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+    if (!cfg && S.mode === 'local') { LS.set('file.' + DEFAULTS.CONFIG_PATH, JSON.stringify(S.cfg)); }
+    var reads = repUsers().map(function(u){
+      return readFile(u.file, null).then(function(d){
+        if (!d) { d = (S.mode === 'local' && SEED[u.key]) ? JSON.parse(JSON.stringify(SEED[u.key])) : emptyRep(u); if (S.mode === 'local') LS.set('file.' + u.file, JSON.stringify(d)); }
+        S.data[u.key] = d;
+      });
+    });
+    reads.push(readFile(DEFAULTS.TENDERS_PATH, null).then(function(t){ S.tenders = t || emptyTenders(); if (!t && S.mode === 'local') LS.set('file.' + DEFAULTS.TENDERS_PATH, JSON.stringify(S.tenders)); }));
+    return Promise.all(reads);
+  }).then(function(){
+    S.loading = false;
+    setSync(S.mode === 'github' ? 'ok' : 'local', S.mode === 'github' ? 'synced ' + new Date().toTimeString().slice(0, 5) : 'local only');
+  }).catch(function(e){
+    S.loading = false; S.error = e.message; setSync('err', 'error');
+    if (!S.cfg) S.cfg = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+    repUsers().forEach(function(u){ if (!S.data[u.key]) S.data[u.key] = emptyRep(u); });
+    if (!S.tenders) S.tenders = emptyTenders();
+  });
+}
+
+/* ---------- auth (PIN → user) ---------- */
+function canEdit(area){ return !!(S.user && S.user.edits && S.user.edits.indexOf(area) >= 0); }
+function tryPin(pin){
+  var hsh = sha256(String(pin));
+  var u = S.cfg.users.filter(function(x){ return x.pinHash === hsh; })[0];
+  if (!u) return false;
+  S.user = u; SS.set('user', u.key); return true;
+}
+function restoreUser(){ var k = SS.get('user'); if (k) S.user = userByKey(k) || null; }
+function lockOut(){ S.user = null; SS.del('user'); render(); }
+
+/* ---------- data helpers ---------- */
+function accOf(rep, id){ return rep.accounts.filter(function(a){ return a.id === id; })[0] || { name: '(no company)' }; }
+function contactsOf(rep, accId){ return rep.contacts.filter(function(c){ return c.accountId === accId; }); }
+function oppsOf(rep, accId){ return rep.opportunities.filter(function(o){ return o.accountId === accId; }); }
+function actsOf(rep, oppId){ return rep.activities.filter(function(a){ return a.oppId === oppId; }).sort(by('at', 'desc')); }
+function isOpen(o){ return ['Won', 'Lost'].indexOf(o.stage) < 0; }
+function isActive(o){ return ['Won', 'Lost', 'On hold'].indexOf(o.stage) < 0; }
+function weighted(o){ return (o.annualValue || 0) * ((o.probability || 0) / 100); }
+function stamp(rec, create){ var who = S.user ? S.user.name : 'Unknown'; rec.updatedAt = nowISO(); rec.updatedBy = who; if (create) { rec.createdAt = rec.updatedAt; rec.createdBy = who; } return rec; }
+function allOpps(){ var out = []; repUsers().forEach(function(u){ var rep = S.data[u.key]; if (!rep) return; rep.opportunities.forEach(function(o){ out.push({ rep: rep, repKey: u.key, o: o, acc: accOf(rep, o.accountId) }); }); }); return out; }
+
+function periodRange(p){
+  var now = new Date(), from;
+  if (p === 'week') { from = new Date(today() + 'T00:00:00'); from.setDate(from.getDate() - ((from.getDay() + 6) % 7)); }
+  else if (p === 'month') from = new Date(now.getFullYear(), now.getMonth(), 1);
+  else if (p === 'quarter') from = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+  else if (p === 'fy') from = new Date(fyStart());
+  else from = new Date(2000, 0, 1);
+  return from.toISOString();
+}
+function kpisFor(repKey, period){
+  var rep = S.data[repKey], from = periodRange(period), stale = S.cfg.staleDays || 30;
+  var k = { open: 0, active: 0, hold: 0, weighted: 0, pipeline: 0, won: 0, wonVal: 0, lost: 0, newOpps: 0, acts: 0, calls: 0, meetings: 0, quotes: 0, samples: 0, emails: 0, overdue: 0, stale: 0, dueWeek: 0, winRate: null, wonAll: 0, lostAll: 0 };
+  var we = weekEnd();
+  rep.opportunities.forEach(function(o){
+    if (isOpen(o)) { k.open++; k.weighted += weighted(o); k.pipeline += (o.annualValue || 0); if (o.stage === 'On hold') k.hold++; else k.active++; }
+    if (o.stage === 'Won') { k.wonAll++; if (!o.imported && (o.wonDate || o.updatedAt || '') >= from.slice(0, 10)) { k.won++; k.wonVal += (o.annualValue || o.firstOrderValue || 0); } }
+    if (o.stage === 'Lost') { k.lostAll++; if ((o.updatedAt || '') >= from) k.lost++; }
+    if (!o.imported && (o.createdAt || '') >= from) k.newOpps++;
+    if (isOpen(o) && o.nextActionDue) { var n = daysUntil(o.nextActionDue); if (n < 0) k.overdue++; if (o.nextActionDue <= we) k.dueWeek++; }
+    if (isActive(o)) { var last = o.lastActivityAt || o.updatedAt || o.createdAt; if (last && (Date.now() - new Date(last).getTime()) / 86400000 > stale) k.stale++; }
+  });
+  rep.activities.forEach(function(a){
+    if ((a.at || '') < from || a.source) return;
+    k.acts++;
+    var t = a.type; if (t === 'Call') k.calls++; else if (t === 'Meeting') k.meetings++; else if (t === 'Quote') k.quotes++; else if (t === 'Samples') k.samples++; else if (t === 'Email') k.emails++;
+  });
+  if (k.wonAll + k.lostAll) k.winRate = Math.round(100 * k.wonAll / (k.wonAll + k.lostAll));
+  return k;
+}
+
+/* =====================================================================
+   Views
+   ===================================================================== */
+var ICONS = { Call: '📞', Email: '✉️', Meeting: '🤝', Samples: '📦', Quote: '💷', Note: '📝', Stage: '🔀', Created: '✨', Tender: '📄' };
+
+function renderTabs(){
+  var tabs = [{ k: 'kpi', l: 'KPIs' }];
+  repUsers().forEach(function(u){ var rep = S.data[u.key]; var n = rep ? rep.opportunities.filter(isActive).length : 0; tabs.push({ k: u.key, l: u.name.split(' ')[0], n: n, lock: !canEdit(u.key) }); });
+  tabs.push({ k: 'tenders', l: 'Tenders', n: S.tenders ? S.tenders.tenders.filter(function(t){ return ['Won', 'Lost', 'No bid'].indexOf(t.stage) < 0; }).length : 0, lock: !canEdit('tenders') });
+  tabs.push({ k: 'dir', l: 'Directory' });
+  $('tabs').innerHTML = tabs.map(function(t){
+    return '<button class="' + (S.tab === t.k ? 'on' : '') + '" onclick="go(\'' + t.k + '\')">' + h(t.l) + (t.n != null ? ' <span class="cnt">' + t.n + '</span>' : '') + (t.lock ? ' <span class="lock">🔒</span>' : '') + '</button>';
+  }).join('');
+  var uc = $('userChip');
+  if (S.user) { uc.style.display = ''; uc.innerHTML = '<b>' + h(S.user.name.split(' ')[0]) + '</b> · <span style="cursor:pointer;text-decoration:underline" onclick="lockOut()">lock</span>'; }
+  else { uc.style.display = ''; uc.innerHTML = '<span style="cursor:pointer" onclick="openPin()">🔒 <u>Enter PIN</u></span>'; }
+}
+function go(tab){ S.tab = tab; LS.set('tab', tab); render(); window.scrollTo(0, 0); }
+
+function render(){
+  if (!S.cfg) { $('main').innerHTML = '<div class="empty">Loading…</div>'; return; }
+  renderTabs();
+  var html = '';
+  if (S.mode === 'local') html += '<div class="banner">Local demo mode — data is saved in this browser only. <span class="lnk" onclick="openSettings()">Add a GitHub token in Settings</span> to share with the team.</div>';
+  if (S.error) html += '<div class="banner err">' + h(S.error) + ' <span class="lnk" onclick="openSettings()">Settings</span></div>';
+  if (S.mode === 'github' && Object.keys(S.missing).length) html += '<div class="banner">Data files not found in <code>' + h(S.repo) + '</code> — they will be created on first save. <span class="lnk" onclick="seedRepo()">Create them now (with the imported pipeline)</span></div>';
+  var tab = S.tab;
+  if (tab === 'kpi') html += renderKPI();
+  else if (tab === 'tenders') html += renderTenders();
+  else if (tab === 'dir') html += renderDirectory();
+  else if (S.data[tab]) html += renderRep(tab);
+  else { S.tab = 'kpi'; html += renderKPI(); }
+  $('main').innerHTML = html;
+  var fab = '';
+  if (S.data[tab] && canEdit(tab)) fab = '<button class="fab" onclick="openNewOpp(\'' + tab + '\')">+ New opportunity</button>';
+  if (tab === 'tenders' && canEdit('tenders')) fab = '<button class="fab" onclick="openNewTender()">+ New tender</button>';
+  var old = document.querySelector('.fab'); if (old) old.remove();
+  if (fab) document.body.insertAdjacentHTML('beforeend', fab);
+}
+
+/* ---------- KPI dashboard ---------- */
+function renderKPI(){
+  var p = S.period, pl = { week: 'This week', month: 'This month', quarter: 'Last 3 months', fy: fyLabel(), all: 'All time' };
+  var html = '<div class="toolbar"><div class="chips">' + Object.keys(pl).map(function(k){ return '<span class="chip ' + (p === k ? 'on' : '') + '" onclick="S.period=\'' + k + '\';render()">' + h(pl[k]) + '</span>'; }).join('') + '</div><div class="spacer" style="flex:1"></div><button class="btn btn-sm" onclick="exportCSV()">Export CSV</button></div>';
+
+  var reps = repUsers();
+  html += '<div class="rep2">';
+  reps.forEach(function(u){
+    var k = kpisFor(u.key, p);
+    html += '<div class="card"><h2>' + h(u.name) + ' <span class="r">' + h(u.role) + '</span></h2><div class="body"><div class="kgrid">' +
+      tile('Active opps', k.active, k.hold ? k.hold + ' on hold' : '') +
+      tile('Weighted pipeline', moneyK(k.weighted), 'of ' + moneyK(k.pipeline) + ' annual') +
+      tile('Won · ' + pl[p], k.won, moneyK(k.wonVal) + ' annual', k.won ? 'good' : '') +
+      tile('New opps · ' + pl[p], k.newOpps, '') +
+      tile('Activities · ' + pl[p], k.acts, k.calls + ' calls · ' + k.meetings + ' mtgs · ' + k.emails + ' emails') +
+      tile('Quotes / samples', k.quotes + ' / ' + k.samples, pl[p]) +
+      tile('Overdue actions', k.overdue, k.dueWeek + ' due this week', k.overdue ? 'warn' : '') +
+      tile('Stale (' + (S.cfg.staleDays || 30) + 'd+)', k.stale, 'no activity', k.stale ? 'warn' : '') +
+      tile('Win rate', k.winRate == null ? '—' : k.winRate + '%', k.wonAll + ' won · ' + k.lostAll + ' lost') +
+      '</div></div></div>';
+  });
+  html += '</div>';
+
+  // stage funnel (both reps)
+  var stages = S.cfg.stages, counts = {}, vals = {};
+  stages.forEach(function(s){ counts[s] = 0; vals[s] = 0; });
+  allOpps().forEach(function(x){ counts[x.o.stage] = (counts[x.o.stage] || 0) + 1; vals[x.o.stage] = (vals[x.o.stage] || 0) + (x.o.annualValue || 0); });
+  var max = Math.max.apply(null, stages.map(function(s){ return counts[s]; }).concat([1]));
+  html += '<div class="card"><h2>Pipeline by stage <span class="r">all opportunities · annual value</span></h2><div class="body bars">' +
+    stages.map(function(s){ return '<div class="bar"><span class="stg" data-s="' + h(s) + '">' + h(s) + '</span><div class="t"><i style="width:' + Math.round(100 * counts[s] / max) + '%"></i></div><span class="n">' + counts[s] + ' · ' + moneyK(vals[s]) + '</span></div>'; }).join('') + '</div></div>';
+
+  // needs attention
+  var att = [];
+  allOpps().forEach(function(x){
+    var o = x.o; if (!isOpen(o)) return;
+    if (o.nextActionDue && daysUntil(o.nextActionDue) < 0) att.push({ t: 'Overdue ' + (-daysUntil(o.nextActionDue)) + 'd', s: x.acc.name + ' — ' + (o.nextAction || 'next action'), who: x.rep.owner.split(' ')[0], cls: 'over', open: 'openOpp(\'' + x.repKey + '\',\'' + o.id + '\')', sort: o.nextActionDue });
+  });
+  att.sort(by('sort'));
+  var staleList = [];
+  allOpps().forEach(function(x){ var o = x.o; if (!isActive(o)) return; var last = o.lastActivityAt || o.updatedAt; var d = (Date.now() - new Date(last).getTime()) / 86400000; if (d > (S.cfg.staleDays || 30)) staleList.push({ t: Math.floor(d) + 'd quiet', s: x.acc.name + ' · ' + o.stage, who: x.rep.owner.split(' ')[0], cls: 'soon', open: 'openOpp(\'' + x.repKey + '\',\'' + o.id + '\')', sort: -d }); });
+  staleList.sort(by('sort'));
+  var tend = (S.tenders ? S.tenders.tenders : []).filter(function(t){ return t.submissionDeadline && ['Won', 'Lost', 'No bid'].indexOf(t.stage) < 0 && daysUntil(t.submissionDeadline) <= 21; }).map(function(t){ var n = daysUntil(t.submissionDeadline); return { t: n < 0 ? 'Deadline passed' : 'Deadline in ' + n + 'd', s: t.title + ' · ' + t.issuer, who: 'Tender', cls: n <= 7 ? 'over' : 'soon', open: 'openTender(\'' + t.id + '\')' }; });
+
+  html += '<div class="rep2">';
+  html += '<div class="card"><h2>Needs attention <span class="r">' + (att.length + tend.length) + '</span></h2><div class="body">' + (att.length + tend.length ? '<ul class="att">' + tend.concat(att).slice(0, 15).map(attLi).join('') + '</ul>' : '<div class="empty">Nothing overdue 🎉</div>') + '</div></div>';
+  html += '<div class="card"><h2>Gone quiet <span class="r">' + staleList.length + '</span></h2><div class="body">' + (staleList.length ? '<ul class="att">' + staleList.slice(0, 12).map(attLi).join('') + '</ul>' : '<div class="empty">Everything active has been touched in the last ' + (S.cfg.staleDays || 30) + ' days</div>') + '</div></div>';
+  html += '</div>';
+
+  // top weighted
+  var top = allOpps().filter(function(x){ return isActive(x.o) && x.o.annualValue; }).sort(function(a, b){ return weighted(b.o) - weighted(a.o); }).slice(0, 10);
+  html += '<div class="card"><h2>Top opportunities <span class="r">by weighted annual value</span></h2><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Company</th><th class="hideM">Owner</th><th>Stage</th><th class="num hideM">%</th><th class="num">Annual</th><th class="num">Weighted</th><th class="hideM">Expected</th></tr></thead><tbody>' +
+    top.map(function(x){ return '<tr onclick="openOpp(\'' + x.repKey + '\',\'' + x.o.id + '\')"><td><b>' + h(x.acc.name) + '</b></td><td class="hideM">' + h(x.rep.owner.split(' ')[0]) + '</td><td><span class="stg" data-s="' + h(x.o.stage) + '">' + h(x.o.stage) + '</span></td><td class="num hideM">' + (x.o.probability || 0) + '%</td><td class="num">' + money(x.o.annualValue) + '</td><td class="num"><b>' + money(weighted(x.o)) + '</b><small class="onlyM" style="display:block;color:var(--mut)">' + (x.o.probability || 0) + '%</small></td><td class="hideM">' + h(x.o.expectedStart || '—') + '</td></tr>'; }).join('') + '</tbody></table></div></div>';
+
+  // recent activity
+  var feed = [];
+  repUsers().forEach(function(u){ var rep = S.data[u.key]; rep.activities.forEach(function(a){ if (!a.source) feed.push({ a: a, rep: rep, repKey: u.key }); }); });
+  feed.sort(function(a, b){ return (b.a.at || '').localeCompare(a.a.at || ''); });
+  html += '<div class="card"><h2>Recent activity</h2><div class="body">' + (feed.length ? '<ul class="tl">' + feed.slice(0, 12).map(function(f){ var acc = accOf(f.rep, f.a.accountId); return '<li onclick="openOpp(\'' + f.repKey + '\',\'' + f.a.oppId + '\')" style="cursor:pointer"><div class="ic">' + (ICONS[f.a.type] || '📝') + '</div><div><div class="hd"><b>' + h(acc.name) + '</b> ' + h(f.a.type) + ' · ' + h(f.a.by) + ' · ' + fmtDT(f.a.at) + '</div><div class="nt">' + h((f.a.note || '').slice(0, 160)) + '</div></div></li>'; }).join('') + '</ul>' : '<div class="empty">No activity logged yet</div>') + '</div></div>';
+  return html;
+}
+function tile(l, v, s, cls){ return '<div class="kpi ' + (cls || '') + '"><div class="l">' + h(l) + '</div><div class="v">' + h(v) + '</div>' + (s ? '<div class="s">' + h(s) + '</div>' : '') + '</div>'; }
+function attLi(x){ return '<li onclick="' + x.open + '"><span class="due ' + x.cls + '" style="font-weight:700;white-space:nowrap">' + h(x.t) + '</span><span>' + h(x.s) + '</span><span class="who">' + h(x.who) + '</span></li>'; }
+
+/* ---------- rep pipeline ---------- */
+function renderRep(key){
+  var rep = S.data[key], u = userByKey(key), f = S.filters[key] || (S.filters[key] = { q: '', stage: 'open', sort: 'next', view: 'list' });
+  var html = '';
+  if (!canEdit(key)) html += '<div class="banner">Viewing ' + h(u.name) + '\'s pipeline (read only). ' + (S.user ? '' : '<span class="lnk" onclick="openPin()">Enter PIN to edit</span>') + '</div>';
+  html += '<div class="toolbar"><input type="search" placeholder="Search company, contact, notes…" value="' + h(f.q) + '" oninput="S.filters[\'' + key + '\'].q=this.value;render()">' +
+    '<select onchange="S.filters[\'' + key + '\'].stage=this.value;render()">' + [['open', 'Open (not won/lost)'], ['active', 'Active (excl. on hold)'], ['week', 'Due this week / overdue'], ['all', 'All']].concat(S.cfg.stages.map(function(s){ return [s, s]; })).map(function(o){ return '<option value="' + h(o[0]) + '"' + (f.stage === o[0] ? ' selected' : '') + '>' + h(o[1]) + '</option>'; }).join('') + '</select>' +
+    '<select onchange="S.filters[\'' + key + '\'].sort=this.value;render()">' + [['next', 'Next action'], ['value', 'Annual value'], ['weighted', 'Weighted'], ['updated', 'Last updated'], ['name', 'Company A–Z']].map(function(o){ return '<option value="' + o[0] + '"' + (f.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
+    '<button class="btn btn-sm hideM" onclick="S.filters[\'' + key + '\'].view=\'' + (f.view === 'list' ? 'board' : 'list') + '\';render()">' + (f.view === 'list' ? 'Board view' : 'List view') + '</button></div>';
+
+  var q = f.q.toLowerCase(), we = weekEnd();
+  var rows = rep.opportunities.map(function(o){ return { o: o, acc: accOf(rep, o.accountId), cs: contactsOf(rep, o.accountId) }; }).filter(function(x){
+    var o = x.o;
+    if (f.stage === 'open' && !isOpen(o)) return false;
+    if (f.stage === 'active' && !isActive(o)) return false;
+    if (f.stage === 'week' && !(isOpen(o) && o.nextActionDue && o.nextActionDue <= we)) return false;
+    if (S.cfg.stages.indexOf(f.stage) >= 0 && o.stage !== f.stage) return false;
+    if (q) { var blob = [x.acc.name, x.acc.location, x.acc.sector, x.acc.sageCode, x.acc.brief, o.nextAction, o.title].concat(x.cs.map(function(c){ return c.name + ' ' + c.role; })).join(' ').toLowerCase(); var notes = rep.activities.filter(function(a){ return a.oppId === o.id; }).map(function(a){ return a.note; }).join(' ').toLowerCase(); if (blob.indexOf(q) < 0 && notes.indexOf(q) < 0) return false; }
+    return true;
+  });
+  var sorters = { next: function(a, b){ var x = a.o.nextActionDue, y = b.o.nextActionDue; if (x && y) return x.localeCompare(y); if (x) return -1; if (y) return 1; return (b.o.updatedAt || '').localeCompare(a.o.updatedAt || ''); }, value: function(a, b){ return (b.o.annualValue || 0) - (a.o.annualValue || 0); }, weighted: function(a, b){ return weighted(b.o) - weighted(a.o); }, updated: function(a, b){ return (b.o.updatedAt || '').localeCompare(a.o.updatedAt || ''); }, name: function(a, b){ return a.acc.name.localeCompare(b.acc.name); } };
+  rows.sort(sorters[f.sort] || sorters.next);
+
+  var tot = rows.reduce(function(s, x){ return s + (x.o.annualValue || 0); }, 0), wtd = rows.reduce(function(s, x){ return s + weighted(x.o); }, 0);
+  html += '<div class="muted" style="margin-bottom:8px">' + rows.length + ' opportunities · ' + moneyK(tot) + ' annual · ' + moneyK(wtd) + ' weighted</div>';
+  if (!rows.length) html += '<div class="empty">No opportunities match.' + (canEdit(key) ? ' Tap <b>+ New opportunity</b> to add one.' : '') + '</div>';
+  else if (f.view === 'board' && window.innerWidth > 700) {
+    html += '<div class="board">' + S.cfg.stages.map(function(s){ var cs = rows.filter(function(x){ return x.o.stage === s; }); if (!cs.length && ['Lost', 'Lead', 'Won'].indexOf(s) >= 0) return ''; return '<div class="col"><h3>' + h(s) + ' <small>' + cs.length + ' · ' + moneyK(cs.reduce(function(a, x){ return a + (x.o.annualValue || 0); }, 0)) + '</small></h3>' + cs.map(function(x){ return oppCard(key, x, true); }).join('') + '</div>'; }).join('') + '</div>';
+  } else html += '<div class="olist">' + rows.map(function(x){ return oppCard(key, x); }).join('') + '</div>';
+  return html;
+}
+function oppCard(key, x, compact){
+  var o = x.o, acc = x.acc, c = x.cs[0];
+  return '<div class="opp" onclick="openOpp(\'' + key + '\',\'' + o.id + '\')">' +
+    '<div class="co">' + h(acc.name) + (acc.sageCode ? ' <code>' + h(acc.sageCode) + '</code>' : '') + '</div>' +
+    '<div class="val">' + (o.annualValue ? money(o.annualValue) : '<span class="muted">TBA</span>') + '<small>' + (o.probability != null ? o.probability + '% · ' + moneyK(weighted(o)) : '') + '</small></div>' +
+    '<div class="meta"><span class="stg" data-s="' + h(o.stage) + '">' + h(o.stage) + '</span>' + (compact ? '' : '<span>' + h(acc.location || '') + '</span><span>' + h(acc.sector || '') + '</span>' + (c ? '<span>👤 ' + h(c.name) + '</span>' : '')) + '<span>' + rel(o.lastActivityAt || o.updatedAt) + '</span></div>' +
+    (o.nextAction || o.nextActionDue ? '<div class="next"><span class="due ' + dueClass(o.nextActionDue) + '">' + (o.nextActionDue ? fmtDate(o.nextActionDue) + ' · ' + dueLabel(o.nextActionDue) : '') + '</span><span>' + h(o.nextAction || '') + '</span></div>' : '') +
+    '</div>';
+}
+
+/* ---------- tenders ---------- */
+function renderTenders(){
+  var T = S.tenders, f = S.filters.tenders || (S.filters.tenders = { q: '', stage: 'open' });
+  var html = '';
+  if (!canEdit('tenders')) html += '<div class="banner">Tenders are maintained by the Sales Manager (read only). ' + (S.user ? '' : '<span class="lnk" onclick="openPin()">Enter PIN to edit</span>') + '</div>';
+  html += '<div class="toolbar"><input type="search" placeholder="Search tenders…" value="' + h(f.q) + '" oninput="S.filters.tenders.q=this.value;render()"><select onchange="S.filters.tenders.stage=this.value;render()">' + [['open', 'Live tenders'], ['all', 'All']].concat(S.cfg.tenderStages.map(function(s){ return [s, s]; })).map(function(o){ return '<option value="' + h(o[0]) + '"' + (f.stage === o[0] ? ' selected' : '') + '>' + h(o[1]) + '</option>'; }).join('') + '</select></div>';
+  var q = f.q.toLowerCase();
+  var rows = T.tenders.filter(function(t){ if (f.stage === 'open' && ['Won', 'Lost', 'No bid'].indexOf(t.stage) >= 0) return false; if (f.stage !== 'open' && f.stage !== 'all' && t.stage !== f.stage) return false; if (q && [t.title, t.issuer, t.sector, t.portal, t.incumbent, t.notes, t.owner].join(' ').toLowerCase().indexOf(q) < 0) return false; return true; })
+    .sort(function(a, b){ var x = a.submissionDeadline, y = b.submissionDeadline; if (x && y) return x.localeCompare(y); if (x) return -1; if (y) return 1; return (b.updatedAt || '').localeCompare(a.updatedAt || ''); });
+  if (!rows.length) html += '<div class="empty">No tenders yet.' + (canEdit('tenders') ? ' Tap <b>+ New tender</b> to log one.' : '') + '</div>';
+  else html += '<div class="olist">' + rows.map(function(t){
+    return '<div class="opp" onclick="openTender(\'' + t.id + '\')"><div class="co">' + h(t.title) + '</div><div class="val">' + (t.estValue ? money(t.estValue) : '<span class="muted">TBA</span>') + '<small>' + h(t.contractLength || '') + '</small></div>' +
+      '<div class="meta"><span class="stg" data-s="' + h(t.stage) + '">' + h(t.stage) + '</span><span>' + h(t.issuer || '') + '</span><span>' + h(t.sector || '') + '</span>' + (t.owner ? '<span>👤 ' + h(t.owner) + '</span>' : '') + '</div>' +
+      (t.submissionDeadline ? '<div class="next"><span class="due ' + dueClass(t.submissionDeadline) + '">Submit by ' + fmtDate(t.submissionDeadline) + ' · ' + dueLabel(t.submissionDeadline) + '</span>' + (t.nextAction ? '<span>' + h(t.nextAction) + '</span>' : '') + '</div>' : (t.nextAction ? '<div class="next"><span>' + h(t.nextAction) + '</span></div>' : '')) + '</div>';
+  }).join('') + '</div>';
+  return html;
+}
+
+/* ---------- directory ---------- */
+function renderDirectory(){
+  var f = S.filters.dir || (S.filters.dir = { q: '' }), q = f.q.toLowerCase();
+  var html = '<div class="toolbar"><input type="search" placeholder="Search companies & contacts…" value="' + h(f.q) + '" oninput="S.filters.dir.q=this.value;render()" autofocus></div>';
+  var rows = [];
+  repUsers().forEach(function(u){ var rep = S.data[u.key]; rep.accounts.forEach(function(a){ var cs = contactsOf(rep, a.id), os = oppsOf(rep, a.id); if (q && [a.name, a.location, a.sector, a.sageCode, a.brief].concat(cs.map(function(c){ return c.name + ' ' + c.role + ' ' + c.email + ' ' + c.phone; })).join(' ').toLowerCase().indexOf(q) < 0) return; rows.push({ a: a, cs: cs, os: os, rep: rep, key: u.key }); }); });
+  rows.sort(function(x, y){ return x.a.name.localeCompare(y.a.name); });
+  html += '<div class="muted" style="margin-bottom:8px">' + rows.length + ' companies</div>';
+  html += '<div class="olist">' + rows.map(function(r){
+    var o = r.os.slice().sort(by('updatedAt', 'desc'))[0];
+    return '<div class="opp" onclick="' + (o ? 'openOpp(\'' + r.key + '\',\'' + o.id + '\')' : '') + '"><div class="co">' + h(r.a.name) + (r.a.sageCode ? ' <code>' + h(r.a.sageCode) + '</code>' : '') + '</div><div class="val"><small>' + h(r.rep.owner.split(' ')[0]) + '</small></div>' +
+      '<div class="meta">' + (o ? '<span class="stg" data-s="' + h(o.stage) + '">' + h(o.stage) + '</span>' : '') + '<span>' + h(r.a.location || '') + '</span><span>' + h(r.a.sector || '') + '</span></div>' +
+      (r.cs.length ? '<div class="next" style="flex-wrap:wrap">' + r.cs.map(function(c){ return '<span>👤 ' + h(c.name) + (c.role ? ' <span class="muted">' + h(c.role) + '</span>' : '') + (c.phone ? ' · <a href="tel:' + h(c.phone) + '" onclick="event.stopPropagation()">' + h(c.phone) + '</a>' : '') + (c.email ? ' · <a href="mailto:' + h(c.email) + '" onclick="event.stopPropagation()">' + h(c.email) + '</a>' : '') + '</span>'; }).join('') + '</div>' : '') + '</div>';
+  }).join('') + '</div>';
+  return html;
+}
+
+/* =====================================================================
+   Sheets (overlays)
+   ===================================================================== */
+function openSheet(title, body, footer, opts){
+  opts = opts || {};
+  $('ovRoot').innerHTML = '<div class="ov" onclick="if(event.target===this)closeSheet()"><div class="sheet"><div class="sh">' + (opts.back ? '<button class="mx" onclick="' + opts.back + '" style="font-size:20px">&#8592;</button>' : '') + '<h2>' + title + '</h2><button class="mx" onclick="closeSheet()">&times;</button></div><div class="sb" id="sb">' + body + '</div>' + (footer ? '<div class="sf">' + footer + '</div>' : '') + '</div></div>';
+  document.body.style.overflow = 'hidden';
+}
+function closeSheet(){ $('ovRoot').innerHTML = ''; document.body.style.overflow = ''; }
+
+/* form helpers */
+function fld(label, name, value, type, opts){
+  opts = opts || {};
+  var cls = 'field' + (opts.span ? ' span2' : '') + (opts.mspan ? ' mspan' : '');
+  var inner;
+  if (type === 'select') inner = '<select data-f="' + name + '">' + (opts.blank ? '<option value="">' + h(opts.blank) + '</option>' : '') + opts.options.map(function(o){ var v = Array.isArray(o) ? o[0] : o, l = Array.isArray(o) ? o[1] : o; return '<option value="' + h(v) + '"' + (String(value) === String(v) ? ' selected' : '') + '>' + h(l) + '</option>'; }).join('') + '</select>';
+  else if (type === 'textarea') inner = '<textarea data-f="' + name + '" placeholder="' + h(opts.ph || '') + '">' + h(value || '') + '</textarea>';
+  else inner = '<input data-f="' + name + '" type="' + (type || 'text') + '" value="' + h(value == null ? '' : value) + '" placeholder="' + h(opts.ph || '') + '"' + (opts.list ? ' list="' + opts.list + '"' : '') + (type === 'number' ? ' inputmode="decimal"' : '') + (opts.attrs || '') + '>';
+  return '<div class="' + cls + '"><label>' + h(label) + '</label>' + inner + '</div>';
+}
+function readForm(root){ var out = {}; (root || $('sb')).querySelectorAll('[data-f]').forEach(function(el){ out[el.getAttribute('data-f')] = el.value; }); return out; }
+
+/* ---------- PIN ---------- */
+function openPin(next){
+  openSheet('Enter your PIN', '<div class="pin"><div class="muted">Your PIN identifies you and unlocks your area for editing.</div><input id="pinIn" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off"><div class="msg" id="pinMsg"></div><button class="btn btn-gold" onclick="submitPin()">Unlock</button></div>');
+  S._pinNext = next || null;
+  setTimeout(function(){ var i = $('pinIn'); if (i) i.focus(); }, 50);
+  $('pinIn').addEventListener('keydown', function(e){ if (e.key === 'Enter') submitPin(); });
+}
+function submitPin(){
+  var v = $('pinIn').value;
+  if (tryPin(v)) { closeSheet(); toast('Unlocked as ' + S.user.name); render(); if (S._pinNext) S._pinNext(); }
+  else { $('pinMsg').textContent = 'PIN not recognised'; $('pinIn').select(); }
+}
+
+/* ---------- opportunity detail ---------- */
+function openOpp(key, id){
+  var rep = S.data[key], o = rep.opportunities.filter(function(x){ return x.id === id; })[0];
+  if (!o) return;
+  var acc = accOf(rep, o.accountId), cs = contactsOf(rep, o.accountId), acts = actsOf(rep, o.id), ed = canEdit(key);
+  var body = '';
+  body += '<div class="row" style="margin-bottom:10px;justify-content:space-between"><span class="stg" data-s="' + h(o.stage) + '" style="font-size:12px;padding:4px 10px">' + h(o.stage) + '</span><span class="muted">' + h(rep.owner) + ' · updated ' + rel(o.updatedAt) + (o.updatedBy ? ' by ' + h(o.updatedBy.split(' ')[0]) : '') + '</span></div>';
+  // deal
+  body += '<div class="sec"><h3>Opportunity' + (ed ? '<span class="r"><button class="btn btn-sm" onclick="editDeal(\'' + key + '\',\'' + id + '\')">Edit</button></span>' : '') + '</h3><div class="b"><div class="kv">' +
+    kv('Title', o.title) + kv('1st order value', money(o.firstOrderValue)) + kv('Annual value', money(o.annualValue)) + kv('% chance', o.probability != null ? o.probability + '%' : '—') + kv('Weighted', money(weighted(o))) + kv('Expected start', o.expectedStart || '—') +
+    (o.stage === 'Won' ? kv('Won on', fmtDate(o.wonDate)) : '') + (o.stage === 'Lost' ? kv('Lost reason', o.lostReason || '—') : '') + (o.stage === 'On hold' ? kv('Revisit', fmtDate(o.holdUntil || o.nextActionDue)) : '') +
+    '<div class="wide"><b>Next action</b><span><span class="due ' + dueClass(o.nextActionDue) + '" style="font-weight:700">' + (o.nextActionDue ? fmtDate(o.nextActionDue) + ' (' + dueLabel(o.nextActionDue) + ')' : 'no date') + '</span> — ' + h(o.nextAction || '—') + '</span></div>' +
+    '</div></div></div>';
+  // company
+  body += '<div class="sec"><h3>Company' + (ed ? '<span class="r"><button class="btn btn-sm" onclick="editAccount(\'' + key + '\',\'' + id + '\')">Edit</button></span>' : '') + '</h3><div class="b"><div class="kv">' +
+    kv('Company', acc.name) + kv('Location', acc.location) + kv('Sector', acc.sector) + kv('Type', acc.type) + kv('Staff', acc.staff != null ? acc.staff.toLocaleString('en-GB') : '—') + kv('Sage account', acc.sageCode ? '<code>' + h(acc.sageCode) + '</code>' : '—', true) + (acc.website ? kv('Website', '<a href="' + h(/^https?:/.test(acc.website) ? acc.website : 'https://' + acc.website) + '" target="_blank" rel="noopener">' + h(acc.website) + '</a>', true) : '') +
+    (acc.brief ? '<div class="wide"><b>Brief</b><span>' + h(acc.brief) + '</span></div>' : '') + '</div></div></div>';
+  // contacts
+  body += '<div class="sec"><h3>Contacts' + (ed ? '<span class="r"><button class="btn btn-sm" onclick="editContact(\'' + key + '\',\'' + id + '\',\'\')">+ Add</button></span>' : '') + '</h3><div class="b">' +
+    (cs.length ? cs.map(function(c){ return '<div class="contact"><div><div class="nm">' + h(c.name) + (c.primary ? ' <span class="stg">main</span>' : '') + '</div><div class="rl">' + h(c.role || '') + (c.email ? ' · ' + h(c.email) : '') + (c.phone ? ' · ' + h(c.phone) : '') + '</div></div><div class="acts">' + (c.phone ? '<a href="tel:' + h(c.phone) + '" title="Call">📞</a>' : '') + (c.email ? '<a href="mailto:' + h(c.email) + '" title="Email">✉️</a>' : '') + (ed ? '<button onclick="editContact(\'' + key + '\',\'' + id + '\',\'' + c.id + '\')" title="Edit">✎</button>' : '') + '</div></div>'; }).join('') : '<div class="muted">No contacts yet</div>') + '</div></div>';
+  // timeline
+  body += '<div class="sec"><h3>Timeline <span class="r muted">' + acts.length + ' entries</span></h3><div class="b">' + (acts.length ? '<ul class="tl">' + acts.map(function(a){ return '<li><div class="ic">' + (ICONS[a.type] || '📝') + '</div><div><div class="hd"><b>' + h(a.type) + '</b><span>' + fmtDT(a.at) + '</span><span>' + h(a.by) + '</span>' + (a.source ? '<span>(' + h(a.source) + ')</span>' : '') + '</div><div class="nt">' + h(a.note) + '</div>' + (a.nextAction ? '<div class="nx">→ ' + h(a.nextAction) + (a.nextActionDue ? ' by ' + fmtDate(a.nextActionDue) : '') + '</div>' : '') + '</div></li>'; }).join('') + '</ul>' : '<div class="muted">No updates yet</div>') + '</div></div>';
+  var foot = ed ? '<button class="btn btn-gold" onclick="openUpdate(\'' + key + '\',\'' + id + '\')">+ Add update</button><button class="btn btn-red" style="flex:0 0 auto" onclick="deleteOpp(\'' + key + '\',\'' + id + '\')">Delete</button>' : (S.user ? '' : '<button class="btn" onclick="openPin(function(){openOpp(\'' + key + '\',\'' + id + '\')})">Enter PIN to edit</button>');
+  openSheet(h(acc.name), body, foot);
+}
+function kv(l, v, raw){ return '<div><b>' + h(l) + '</b><span>' + (raw ? v : h(v == null || v === '' ? '—' : v)) + '</span></div>'; }
+
+/* add update (activity + next action + optional stage change) */
+function openUpdate(key, id){
+  var rep = S.data[key], o = rep.opportunities.filter(function(x){ return x.id === id; })[0], acc = accOf(rep, o.accountId);
+  var types = S.cfg.activityTypes;
+  var body = '<div class="field" style="margin-bottom:10px"><label>What happened?</label><div class="chips" id="atype">' + types.map(function(t, i){ return '<span class="chip ' + (i === 0 ? 'on' : '') + '" data-t="' + h(t) + '" onclick="pickChip(this)">' + (ICONS[t] || '') + ' ' + h(t) + '</span>'; }).join('') + '</div></div>' +
+    fld('Notes', 'note', '', 'textarea', { ph: 'What was discussed / sent / agreed…' }) +
+    '<div class="grid" style="margin-top:10px">' + fld('Next action', 'nextAction', o.nextAction || '', 'text', { span: true, ph: 'e.g. Chase for feedback on boards' }) + fld('Due date', 'nextActionDue', o.nextActionDue || '', 'date') + fld('Stage', 'stage', o.stage, 'select', { options: S.cfg.stages, attrs: ' onchange="stageExtra(this.value)"' }) + '</div>' +
+    '<div id="stageExtra" class="grid" style="margin-top:10px"></div>';
+  openSheet('Update · ' + h(acc.name), body, '<button class="btn" onclick="openOpp(\'' + key + '\',\'' + id + '\')">Cancel</button><button class="btn btn-gold" onclick="saveUpdate(\'' + key + '\',\'' + id + '\')">Save update</button>', { back: 'openOpp(\'' + key + '\',\'' + id + '\')' });
+  stageExtra(o.stage, o, acc);
+  setTimeout(function(){ var t = $('sb').querySelector('textarea'); if (t) t.focus(); }, 60);
+}
+function pickChip(el){ el.parentNode.querySelectorAll('.chip').forEach(function(c){ c.classList.remove('on'); }); el.classList.add('on'); }
+function stageExtra(stage, o, acc){
+  var el = $('stageExtra'); if (!el) return; o = o || {}; acc = acc || {};
+  if (stage === 'Won') el.innerHTML = fld('Won on', 'wonDate', o.wonDate || today(), 'date') + fld('Sage account code', 'sageCode', acc.sageCode || '', 'text', { ph: 'e.g. ASC001' });
+  else if (stage === 'Lost') el.innerHTML = fld('Lost reason', 'lostReason', o.lostReason || '', 'text', { span: true, ph: 'Price / incumbent / no budget / no response…' });
+  else if (stage === 'On hold') el.innerHTML = fld('Revisit on', 'holdUntil', o.holdUntil || '', 'date');
+  else el.innerHTML = '';
+}
+function saveUpdate(key, id){
+  var rep = S.data[key], o = rep.opportunities.filter(function(x){ return x.id === id; })[0], acc = accOf(rep, o.accountId);
+  var f = readForm(), chip = $('atype').querySelector('.chip.on'), type = chip ? chip.getAttribute('data-t') : 'Note';
+  if (!f.note.trim() && f.stage === o.stage && f.nextAction === (o.nextAction || '') && f.nextActionDue === (o.nextActionDue || '')) { alert('Add a note or change something first.'); return; }
+  var who = S.user.name, at = nowISO(), note = f.note.trim();
+  if (f.stage !== o.stage) note = (note ? note + '\n' : '') + 'Stage: ' + o.stage + ' → ' + f.stage;
+  rep.activities.push({ id: uid('act'), oppId: o.id, accountId: o.accountId, type: type, note: note, nextAction: f.nextAction, nextActionDue: f.nextActionDue || null, at: at, by: who });
+  o.nextAction = f.nextAction; o.nextActionDue = f.nextActionDue || null; o.lastActivityAt = at;
+  if (f.stage !== o.stage) { o.stage = f.stage; if (f.stage === 'Won') { o.wonDate = f.wonDate || today(); if (f.sageCode) { acc.sageCode = f.sageCode.trim().toUpperCase(); stamp(acc); } acc.type = 'Existing customer'; } if (f.stage === 'Lost') o.lostReason = f.lostReason || ''; if (f.stage === 'On hold') { o.holdUntil = f.holdUntil || null; if (f.holdUntil && !o.nextActionDue) { o.nextActionDue = f.holdUntil; o.nextAction = o.nextAction || 'Revisit'; } } }
+  else if (f.stage === 'Won' && f.sageCode && f.sageCode !== acc.sageCode) { acc.sageCode = f.sageCode.trim().toUpperCase(); stamp(acc); }
+  stamp(o);
+  save(key, who + ': update ' + acc.name);
+  openOpp(key, id); render();
+}
+
+/* edit deal fields */
+function editDeal(key, id){
+  var rep = S.data[key], o = rep.opportunities.filter(function(x){ return x.id === id; })[0], acc = accOf(rep, o.accountId);
+  var body = '<div class="grid">' + fld('Title', 'title', o.title, 'text', { span: true }) + fld('1st order value £', 'firstOrderValue', o.firstOrderValue, 'number') + fld('Annual value £', 'annualValue', o.annualValue, 'number') + fld('% chance', 'probability', o.probability, 'select', { options: [0, 10, 15, 25, 50, 70, 80, 90, 100].map(function(p){ return [p, p + '%']; }), blank: '—' }) + fld('Expected start', 'expectedStart', o.expectedStart, 'text', { ph: 'e.g. Oct 2026 / Q2 2027' }) + fld('Stage', 'stage', o.stage, 'select', { options: S.cfg.stages }) + fld('Next action', 'nextAction', o.nextAction, 'text', { span: true }) + fld('Due date', 'nextActionDue', o.nextActionDue, 'date') + fld('Won on', 'wonDate', o.wonDate, 'date') + fld('Lost reason', 'lostReason', o.lostReason, 'text') + fld('Revisit (on hold)', 'holdUntil', o.holdUntil, 'date') + '</div>';
+  openSheet('Edit · ' + h(acc.name), body, '<button class="btn" onclick="openOpp(\'' + key + '\',\'' + id + '\')">Cancel</button><button class="btn btn-gold" onclick="saveDeal(\'' + key + '\',\'' + id + '\')">Save</button>', { back: 'openOpp(\'' + key + '\',\'' + id + '\')' });
+}
+function saveDeal(key, id){
+  var rep = S.data[key], o = rep.opportunities.filter(function(x){ return x.id === id; })[0], f = readForm(), old = o.stage;
+  o.title = f.title.trim() || 'Uniform supply'; o.firstOrderValue = num(f.firstOrderValue); o.annualValue = num(f.annualValue); o.probability = f.probability === '' ? null : +f.probability; o.expectedStart = f.expectedStart.trim(); o.stage = f.stage; o.nextAction = f.nextAction.trim(); o.nextActionDue = f.nextActionDue || null; o.wonDate = f.wonDate || null; o.lostReason = f.lostReason.trim(); o.holdUntil = f.holdUntil || null;
+  if (o.stage === 'Won' && !o.wonDate) o.wonDate = today();
+  if (old !== o.stage) rep.activities.push({ id: uid('act'), oppId: o.id, accountId: o.accountId, type: 'Note', note: 'Stage: ' + old + ' → ' + o.stage, at: nowISO(), by: S.user.name });
+  stamp(o); save(key, S.user.name + ': edit ' + accOf(rep, o.accountId).name); openOpp(key, id); render();
+}
+
+/* edit account */
+function editAccount(key, id){
+  var rep = S.data[key], o = rep.opportunities.filter(function(x){ return x.id === id; })[0], acc = accOf(rep, o.accountId);
+  openSheet('Edit company', accountFields(acc), '<button class="btn" onclick="openOpp(\'' + key + '\',\'' + id + '\')">Cancel</button><button class="btn btn-gold" onclick="saveAccount(\'' + key + '\',\'' + id + '\')">Save</button>', { back: 'openOpp(\'' + key + '\',\'' + id + '\')' });
+}
+function accountFields(a){
+  return '<div class="grid">' + fld('Company', 'name', a.name, 'text', { span: true }) + fld('Location', 'location', a.location) + fld('Sector', 'sector', a.sector, 'select', { options: S.cfg.sectors, blank: '—' }) + fld('Type', 'type', a.type || 'New business', 'select', { options: ['New business', 'Existing customer'] }) + fld('No. of staff', 'staff', a.staff, 'number') + fld('Sage account code', 'sageCode', a.sageCode, 'text', { ph: 'e.g. ASC001' }) + fld('Website', 'website', a.website, 'text', { ph: 'www…' }) + fld('Brief / narrative', 'brief', a.brief, 'textarea', { span: true, ph: 'Sites, departments, what they are looking for…' }) + '</div>';
+}
+function saveAccount(key, id){
+  var rep = S.data[key], o = rep.opportunities.filter(function(x){ return x.id === id; })[0], acc = accOf(rep, o.accountId), f = readForm();
+  if (!f.name.trim()) { alert('Company name is required'); return; }
+  acc.name = f.name.trim(); acc.location = f.location.trim(); acc.sector = f.sector; acc.type = f.type; acc.staff = num(f.staff); acc.sageCode = f.sageCode.trim().toUpperCase(); acc.website = f.website.trim(); acc.brief = f.brief.trim();
+  stamp(acc); save(key, S.user.name + ': edit company ' + acc.name); openOpp(key, id); render();
+}
+
+/* edit / add contact */
+function editContact(key, id, cid){
+  var rep = S.data[key], c = cid ? rep.contacts.filter(function(x){ return x.id === cid; })[0] : { name: '', role: '', phone: '', email: '', primary: false };
+  var body = '<div class="grid">' + fld('Name', 'name', c.name, 'text', { span: true }) + fld('Role / job title', 'role', c.role, 'text', { span: true }) + fld('Phone', 'phone', c.phone, 'tel') + fld('Email', 'email', c.email, 'email') + fld('Main contact?', 'primary', c.primary ? 'yes' : 'no', 'select', { options: [['yes', 'Yes'], ['no', 'No']] }) + '</div>';
+  openSheet(cid ? 'Edit contact' : 'Add contact', body, '<button class="btn" onclick="openOpp(\'' + key + '\',\'' + id + '\')">Cancel</button>' + (cid ? '<button class="btn btn-red" style="flex:0 0 auto" onclick="deleteContact(\'' + key + '\',\'' + id + '\',\'' + cid + '\')">Delete</button>' : '') + '<button class="btn btn-gold" onclick="saveContact(\'' + key + '\',\'' + id + '\',\'' + (cid || '') + '\')">Save</button>', { back: 'openOpp(\'' + key + '\',\'' + id + '\')' });
+}
+function saveContact(key, id, cid){
+  var rep = S.data[key], o = rep.opportunities.filter(function(x){ return x.id === id; })[0], f = readForm();
+  if (!f.name.trim()) { alert('Name is required'); return; }
+  var c = cid ? rep.contacts.filter(function(x){ return x.id === cid; })[0] : null;
+  if (!c) { c = stamp({ id: uid('con'), accountId: o.accountId }, true); rep.contacts.push(c); }
+  c.name = f.name.trim(); c.role = f.role.trim(); c.phone = f.phone.trim(); c.email = f.email.trim(); c.primary = f.primary === 'yes';
+  if (c.primary) rep.contacts.forEach(function(x){ if (x.accountId === c.accountId && x !== c) x.primary = false; });
+  stamp(c); save(key, S.user.name + ': contact ' + c.name); openOpp(key, id); render();
+}
+function deleteContact(key, id, cid){ if (!confirm('Delete this contact?')) return; var rep = S.data[key]; rep.contacts = rep.contacts.filter(function(x){ return x.id !== cid; }); save(key, S.user.name + ': delete contact'); openOpp(key, id); }
+function deleteOpp(key, id){
+  var rep = S.data[key], o = rep.opportunities.filter(function(x){ return x.id === id; })[0], acc = accOf(rep, o.accountId);
+  if (!confirm('Delete the opportunity for ' + acc.name + '? The company and contacts are kept if other opportunities exist, otherwise removed too.')) return;
+  rep.opportunities = rep.opportunities.filter(function(x){ return x.id !== id; });
+  rep.activities = rep.activities.filter(function(a){ return a.oppId !== id; });
+  if (!oppsOf(rep, acc.id).length) { rep.accounts = rep.accounts.filter(function(a){ return a.id !== acc.id; }); rep.contacts = rep.contacts.filter(function(c){ return c.accountId !== acc.id; }); }
+  save(key, S.user.name + ': delete ' + acc.name); closeSheet(); render();
+}
+
+/* new opportunity */
+function openNewOpp(key){
+  var rep = S.data[key];
+  var body = '<datalist id="accList">' + rep.accounts.map(function(a){ return '<option value="' + h(a.name) + '">'; }).join('') + '</datalist>' +
+    '<div class="sec"><h3>Company</h3><div class="b">' + accountFields({ type: 'New business' }).replace('data-f="name"', 'data-f="name" list="accList" autocomplete="off"') + '<div class="muted" style="margin-top:6px">Typing an existing company name links the new opportunity to it.</div></div></div>' +
+    '<div class="sec"><h3>Main contact</h3><div class="b"><div class="grid">' + fld('Name', 'cname', '', 'text') + fld('Role', 'crole', '') + fld('Phone', 'cphone', '', 'tel') + fld('Email', 'cemail', '', 'email') + '</div></div></div>' +
+    '<div class="sec"><h3>Opportunity</h3><div class="b"><div class="grid">' + fld('Title', 'title', 'Uniform supply', 'text', { span: true }) + fld('Stage', 'stage', 'Lead', 'select', { options: S.cfg.stages.filter(function(s){ return ['Won', 'Lost'].indexOf(s) < 0; }) }) + fld('% chance', 'probability', 25, 'select', { options: [0, 10, 15, 25, 50, 70, 80, 90, 100].map(function(p){ return [p, p + '%']; }) }) + fld('1st order value £', 'firstOrderValue', '', 'number') + fld('Annual value £', 'annualValue', '', 'number') + fld('Expected start', 'expectedStart', '', 'text', { ph: 'e.g. Jan 2027' }) + fld('Next action', 'nextAction', '', 'text', { span: true }) + fld('Due date', 'nextActionDue', '', 'date') + fld('First note', 'note', '', 'textarea', { span: true, ph: 'How did this come about? What do they need?' }) + '</div></div></div>';
+  openSheet('New opportunity · ' + h(rep.owner.split(' ')[0]), body, '<button class="btn" onclick="closeSheet()">Cancel</button><button class="btn btn-gold" onclick="saveNewOpp(\'' + key + '\')">Create</button>');
+  setTimeout(function(){ var i = $('sb').querySelector('[data-f=name]'); if (i) i.focus(); }, 60);
+}
+function saveNewOpp(key){
+  var rep = S.data[key], f = readForm(), who = S.user.name, at = nowISO();
+  if (!f.name.trim()) { alert('Company name is required'); return; }
+  var acc = rep.accounts.filter(function(a){ return a.name.toLowerCase() === f.name.trim().toLowerCase(); })[0];
+  if (!acc) { acc = stamp({ id: uid('acc'), name: f.name.trim(), location: f.location.trim(), sector: f.sector, type: f.type, staff: num(f.staff), sageCode: f.sageCode.trim().toUpperCase(), website: f.website.trim(), brief: f.brief.trim() }, true); rep.accounts.push(acc); }
+  else { ['location', 'sector', 'website', 'brief'].forEach(function(k){ if (f[k] && f[k].trim()) acc[k] = f[k].trim(); }); if (num(f.staff)) acc.staff = num(f.staff); if (f.sageCode.trim()) acc.sageCode = f.sageCode.trim().toUpperCase(); stamp(acc); }
+  if (f.cname.trim()) { var c = stamp({ id: uid('con'), accountId: acc.id, name: f.cname.trim(), role: f.crole.trim(), phone: f.cphone.trim(), email: f.cemail.trim(), primary: !contactsOf(rep, acc.id).length }, true); rep.contacts.push(c); }
+  var o = stamp({ id: uid('opp'), accountId: acc.id, title: f.title.trim() || 'Uniform supply', stage: f.stage, probability: +f.probability, firstOrderValue: num(f.firstOrderValue), annualValue: num(f.annualValue), expectedStart: f.expectedStart.trim(), nextAction: f.nextAction.trim(), nextActionDue: f.nextActionDue || null, wonDate: null, lostReason: '', holdUntil: null, lastActivityAt: at }, true);
+  rep.opportunities.push(o);
+  rep.activities.push({ id: uid('act'), oppId: o.id, accountId: acc.id, type: 'Note', note: f.note.trim() || 'Opportunity created', nextAction: o.nextAction, nextActionDue: o.nextActionDue, at: at, by: who });
+  save(key, who + ': new opportunity ' + acc.name); openOpp(key, o.id); render();
+}
+
+/* ---------- tenders ---------- */
+function tenderFields(t){
+  return '<div class="grid">' + fld('Tender title', 'title', t.title, 'text', { span: true }) + fld('Issuing organisation', 'issuer', t.issuer, 'text', { span: true }) + fld('Sector', 'sector', t.sector, 'select', { options: S.cfg.sectors, blank: '—' }) + fld('Stage', 'stage', t.stage || 'Watching', 'select', { options: S.cfg.tenderStages }) + fld('Portal / reference', 'portal', t.portal, 'text', { ph: 'e.g. Contracts Finder ref' }) + fld('Owner', 'owner', t.owner, 'select', { options: S.cfg.users.filter(function(u){ return u.key !== 'admin'; }).map(function(u){ return u.name; }), blank: '—' }) +
+    fld('Published', 'published', t.published, 'date') + fld('Clarification deadline', 'clarificationDeadline', t.clarificationDeadline, 'date') + fld('Submission deadline', 'submissionDeadline', t.submissionDeadline, 'date') + fld('Award expected', 'awardDate', t.awardDate, 'date') + fld('Contract start', 'contractStart', t.contractStart, 'date') + fld('Contract length', 'contractLength', t.contractLength, 'text', { ph: 'e.g. 3 + 2 yrs' }) +
+    fld('Est. annual value £', 'estValue', t.estValue, 'number') + fld('Incumbent', 'incumbent', t.incumbent) + fld('Next action', 'nextAction', t.nextAction, 'text', { span: true }) + fld('Notes', 'notes', t.notes, 'textarea', { span: true }) + '</div>';
+}
+function openNewTender(){ openSheet('New tender', tenderFields({}), '<button class="btn" onclick="closeSheet()">Cancel</button><button class="btn btn-gold" onclick="saveTender(\'\')">Create</button>'); }
+function openTender(id){
+  var T = S.tenders, t = T.tenders.filter(function(x){ return x.id === id; })[0]; if (!t) return;
+  var ed = canEdit('tenders'), acts = T.activities.filter(function(a){ return a.tenderId === id; }).sort(by('at', 'desc'));
+  var body = '<div class="row" style="margin-bottom:10px;justify-content:space-between"><span class="stg" data-s="' + h(t.stage) + '" style="font-size:12px;padding:4px 10px">' + h(t.stage) + '</span><span class="muted">updated ' + rel(t.updatedAt) + (t.updatedBy ? ' by ' + h(t.updatedBy.split(' ')[0]) : '') + '</span></div>' +
+    '<div class="sec"><h3>Details' + (ed ? '<span class="r"><button class="btn btn-sm" onclick="editTender(\'' + id + '\')">Edit</button></span>' : '') + '</h3><div class="b"><div class="kv">' + kv('Issuer', t.issuer) + kv('Sector', t.sector) + kv('Owner', t.owner) + kv('Portal / ref', t.portal) + kv('Published', fmtDate(t.published)) + kv('Clarifications by', fmtDate(t.clarificationDeadline)) + '<div><b>Submission deadline</b><span class="due ' + dueClass(t.submissionDeadline) + '" style="font-weight:700">' + (t.submissionDeadline ? fmtDate(t.submissionDeadline) + ' (' + dueLabel(t.submissionDeadline) + ')' : '—') + '</span></div>' + kv('Award expected', fmtDate(t.awardDate)) + kv('Contract start', fmtDate(t.contractStart)) + kv('Contract length', t.contractLength) + kv('Est. annual value', money(t.estValue)) + kv('Incumbent', t.incumbent) + '<div class="wide"><b>Next action</b><span>' + h(t.nextAction || '—') + '</span></div>' + (t.notes ? '<div class="wide"><b>Notes</b><span style="white-space:pre-wrap">' + h(t.notes) + '</span></div>' : '') + '</div></div></div>' +
+    '<div class="sec"><h3>Timeline</h3><div class="b">' + (acts.length ? '<ul class="tl">' + acts.map(function(a){ return '<li><div class="ic">' + (ICONS[a.type] || '📄') + '</div><div><div class="hd"><b>' + h(a.type) + '</b><span>' + fmtDT(a.at) + '</span><span>' + h(a.by) + '</span></div><div class="nt">' + h(a.note) + '</div></div></li>'; }).join('') + '</ul>' : '<div class="muted">No updates yet</div>') + '</div></div>';
+  openSheet(h(t.title), body, ed ? '<button class="btn btn-gold" onclick="openTenderUpdate(\'' + id + '\')">+ Add update</button><button class="btn btn-red" style="flex:0 0 auto" onclick="deleteTender(\'' + id + '\')">Delete</button>' : (S.user ? '' : '<button class="btn" onclick="openPin(function(){openTender(\'' + id + '\')})">Enter PIN to edit</button>'));
+}
+function editTender(id){ var t = S.tenders.tenders.filter(function(x){ return x.id === id; })[0]; openSheet('Edit tender', tenderFields(t), '<button class="btn" onclick="openTender(\'' + id + '\')">Cancel</button><button class="btn btn-gold" onclick="saveTender(\'' + id + '\')">Save</button>', { back: 'openTender(\'' + id + '\')' }); }
+function saveTender(id){
+  var T = S.tenders, f = readForm(); if (!f.title.trim()) { alert('Title is required'); return; }
+  var t = id ? T.tenders.filter(function(x){ return x.id === id; })[0] : null, isNew = !t, old = t ? t.stage : null;
+  if (!t) { t = stamp({ id: uid('ten') }, true); T.tenders.push(t); }
+  ['title', 'issuer', 'sector', 'stage', 'portal', 'owner', 'published', 'clarificationDeadline', 'submissionDeadline', 'awardDate', 'contractStart', 'contractLength', 'incumbent', 'nextAction', 'notes'].forEach(function(k){ t[k] = (f[k] || '').trim(); });
+  t.estValue = num(f.estValue); stamp(t);
+  if (isNew) T.activities.push({ id: uid('act'), tenderId: t.id, type: 'Tender', note: 'Tender logged', at: nowISO(), by: S.user.name });
+  else if (old !== t.stage) T.activities.push({ id: uid('act'), tenderId: t.id, type: 'Stage', note: 'Stage: ' + old + ' → ' + t.stage, at: nowISO(), by: S.user.name });
+  save('tenders', S.user.name + ': tender ' + t.title); openTender(t.id); render();
+}
+function openTenderUpdate(id){
+  var t = S.tenders.tenders.filter(function(x){ return x.id === id; })[0];
+  openSheet('Update · ' + h(t.title), '<div class="field" style="margin-bottom:10px"><label>Type</label><div class="chips" id="atype">' + ['Note', 'Call', 'Email', 'Meeting', 'Submitted'].map(function(x, i){ return '<span class="chip ' + (i === 0 ? 'on' : '') + '" data-t="' + x + '" onclick="pickChip(this)">' + (ICONS[x] || '📄') + ' ' + x + '</span>'; }).join('') + '</div></div>' + fld('Notes', 'note', '', 'textarea') + '<div class="grid" style="margin-top:10px">' + fld('Next action', 'nextAction', t.nextAction, 'text', { span: true }) + fld('Stage', 'stage', t.stage, 'select', { options: S.cfg.tenderStages }) + '</div>',
+    '<button class="btn" onclick="openTender(\'' + id + '\')">Cancel</button><button class="btn btn-gold" onclick="saveTenderUpdate(\'' + id + '\')">Save update</button>', { back: 'openTender(\'' + id + '\')' });
+}
+function saveTenderUpdate(id){
+  var T = S.tenders, t = T.tenders.filter(function(x){ return x.id === id; })[0], f = readForm(), type = $('atype').querySelector('.chip.on').getAttribute('data-t');
+  if (!f.note.trim() && f.stage === t.stage && f.nextAction === (t.nextAction || '')) { alert('Add a note or change something first.'); return; }
+  var note = f.note.trim(); if (f.stage !== t.stage) note = (note ? note + '\n' : '') + 'Stage: ' + t.stage + ' → ' + f.stage;
+  T.activities.push({ id: uid('act'), tenderId: id, type: type, note: note, at: nowISO(), by: S.user.name });
+  t.stage = f.stage; t.nextAction = f.nextAction.trim(); stamp(t);
+  save('tenders', S.user.name + ': update tender ' + t.title); openTender(id); render();
+}
+function deleteTender(id){ if (!confirm('Delete this tender?')) return; var T = S.tenders; T.tenders = T.tenders.filter(function(x){ return x.id !== id; }); T.activities = T.activities.filter(function(a){ return a.tenderId !== id; }); save('tenders', S.user.name + ': delete tender'); closeSheet(); render(); }
+
+/* ---------- settings ---------- */
+function openSettings(){
+  var admin = canEdit('config');
+  var body = '<div class="sec"><h3>Connection</h3><div class="b">' +
+    '<div class="muted" style="margin-bottom:8px">Mode: <b>' + (S.mode === 'github' ? 'GitHub (shared)' : 'Local (this browser only)') + '</b>' + (S.mode === 'github' ? ' · ' + h(S.repo) + ' @ ' + h(S.branch) : '') + '</div>' +
+    '<div class="grid">' + fld('Data repo (owner/repo)', 'repo', S.repo, 'text', { span: true }) + fld('Branch', 'branch', S.branch) + fld('GitHub token', 'token', S.token, 'password', { span: true, ph: 'github_pat_…' }) + '</div>' +
+    '<div class="row" style="margin-top:10px"><button class="btn btn-gold" onclick="saveSettings()">Connect & reload</button><button class="btn" onclick="disconnect()">Use local mode</button>' + (S.token ? '<button class="btn" onclick="shareLink()">Copy share link</button>' : '') + '</div>' +
+    '<div class="help" style="margin-top:10px">A share link is this page\'s address with the token after <code>#token=</code>. Open it once on a phone and the token is stored on that device (the link is then cleared from the address bar). Give reps a read/write token and viewers a read-only one.</div></div></div>';
+  body += '<div class="sec"><h3>Data</h3><div class="b"><div class="row"><button class="btn" onclick="exportCSV()">Export opportunities CSV</button><button class="btn" onclick="exportJSON()">Backup JSON</button>' + (S.mode === 'local' ? '<button class="btn btn-red" onclick="resetLocal()">Reset local demo</button>' : '') + '</div></div></div>';
+  if (admin) {
+    body += '<div class="sec"><h3>PINs (admin)</h3><div class="b"><div class="grid">' + fld('User', 'pinUser', '', 'select', { options: S.cfg.users.map(function(u){ return [u.key, u.name + ' (' + u.role + ')']; }) }) + fld('New PIN (4–6 digits)', 'pinNew', '', 'text', { attrs: ' inputmode="numeric"' }) + '</div><div class="row" style="margin-top:10px"><button class="btn btn-gold" onclick="changePin()">Save PIN</button></div>' +
+      '<div class="help" style="margin-top:10px">Users: ' + S.cfg.users.map(function(u){ return '<b>' + h(u.name) + '</b> edits ' + h((u.edits || []).join(', ') || 'nothing'); }).join(' · ') + '. To rename users or change stages/sectors, edit <code>' + h(DEFAULTS.CONFIG_PATH) + '</code> in the data repo.</div></div></div>';
+  }
+  body += '<div class="sec"><h3>Setup guide</h3><div class="b help"><ol>' +
+    '<li>Create a <b>private</b> GitHub repo for the data (e.g. <code>crm-data</code>) and upload the <code>data/</code> folder (config, lindsay, di, tenders).</li>' +
+    '<li>Put this <code>index.html</code> in a repo with GitHub Pages enabled (can be public — it holds no customer data).</li>' +
+    '<li>GitHub → Settings → Developer settings → Fine-grained tokens → generate one scoped to <b>only the data repo</b> with <b>Contents: Read and write</b> (for reps) or <b>Read-only</b> (for viewers). Set the longest expiry.</li>' +
+    '<li>Paste the token above (or open a share link) on each device. Change the default PINs straight away.</li></ol>' +
+    '<div class="muted">Default PINs — Lindsay 1111 · Di 2222 · Sales Manager 3333 · Admin 9999</div></div></div>';
+  openSheet('Settings', body, '<button class="btn" onclick="closeSheet()">Close</button>');
+}
+function saveSettings(){
+  var f = readForm(); S.repo = f.repo.trim() || DEFAULTS.DATA_REPO; S.branch = f.branch.trim() || 'main'; S.token = f.token.trim();
+  LS.set('repo', S.repo); LS.set('branch', S.branch); if (S.token) LS.set('token', S.token); else LS.del('token');
+  S.mode = S.token ? 'github' : 'local'; S.shas = {}; S.missing = {}; S.data = {}; closeSheet();
+  loadAll().then(function(){ render(); if (S.error) openSettings(); else toast(S.mode === 'github' ? 'Connected to ' + S.repo : 'Local mode'); });
+}
+function disconnect(){ S.token = ''; LS.del('token'); S.mode = 'local'; S.shas = {}; S.missing = {}; S.data = {}; closeSheet(); loadAll().then(render); }
+function shareLink(){ var url = location.href.split('#')[0] + '#token=' + encodeURIComponent(S.token) + '&repo=' + encodeURIComponent(S.repo); copyText(url); }
+function resetLocal(){ if (!confirm('Reset the local demo data back to the imported pipeline?')) return; ['file.' + DEFAULTS.CONFIG_PATH, 'file.' + DEFAULTS.TENDERS_PATH].forEach(LS.del); DEFAULT_CONFIG.users.forEach(function(u){ if (u.file) LS.del('file.' + u.file); }); S.data = {}; closeSheet(); loadAll().then(render); }
+function changePin(){
+  var f = readForm(); if (!/^\d{4,6}$/.test(f.pinNew)) { alert('PIN must be 4–6 digits'); return; }
+  var u = userByKey(f.pinUser); var hsh = sha256(f.pinNew);
+  if (S.cfg.users.some(function(x){ return x.pinHash === hsh && x !== u; })) { alert('Another user already has that PIN — choose a different one.'); return; }
+  u.pinHash = hsh; save('config', 'Change PIN for ' + u.name).then(function(){ toast('PIN updated for ' + u.name); });
+}
+function seedRepo(){
+  if (!confirm('Create the data files in ' + S.repo + ' now? Missing files are created from the imported pipeline (Lindsay) and empty templates.')) return;
+  var jobs = [];
+  if (S.missing[DEFAULTS.CONFIG_PATH]) jobs.push(function(){ return writeFile(DEFAULTS.CONFIG_PATH, S.cfg, 'Create config'); });
+  repUsers().forEach(function(u){ if (S.missing[u.file]) jobs.push(function(){ if (SEED[u.key] && !S.data[u.key].opportunities.length) S.data[u.key] = JSON.parse(JSON.stringify(SEED[u.key])); return writeFile(u.file, S.data[u.key], 'Create ' + u.file); }); });
+  if (S.missing[DEFAULTS.TENDERS_PATH]) jobs.push(function(){ return writeFile(DEFAULTS.TENDERS_PATH, S.tenders, 'Create tenders'); });
+  setSync('busy', 'creating…');
+  jobs.reduce(function(p, j){ return p.then(j); }, Promise.resolve()).then(function(){ S.missing = {}; setSync('ok', 'synced'); toast('Data files created'); render(); }).catch(function(e){ setSync('err', 'error'); alert('Could not create files: ' + e.message); });
+}
+
+/* ---------- export ---------- */
+function exportCSV(){
+  var cols = ['Owner', 'Company', 'Location', 'Sector', 'Type', 'Sage code', 'Staff', 'Main contact', 'Role', 'Phone', 'Email', 'Title', 'Stage', '% chance', '1st order value', 'Annual value', 'Weighted', 'Expected start', 'Next action', 'Due', 'Last activity', 'Created', 'Won on', 'Lost reason'];
+  var rows = [cols];
+  allOpps().forEach(function(x){ var o = x.o, a = x.acc, c = contactsOf(x.rep, a.id).filter(function(c){ return c.primary; })[0] || contactsOf(x.rep, a.id)[0] || {}; rows.push([x.rep.owner, a.name, a.location, a.sector, a.type, a.sageCode, a.staff, c.name, c.role, c.phone, c.email, o.title, o.stage, o.probability, o.firstOrderValue, o.annualValue, Math.round(weighted(o)), o.expectedStart, o.nextAction, o.nextActionDue, fmtDT(o.lastActivityAt), fmtDate(o.createdAt), o.wonDate, o.lostReason]); });
+  var csv = rows.map(function(r){ return r.map(function(v){ v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(','); }).join('\r\n');
+  download('pipeline-' + today() + '.csv', '﻿' + csv, 'text/csv');
+}
+function exportJSON(){ download('crm-backup-' + today() + '.json', JSON.stringify({ config: S.cfg, data: S.data, tenders: S.tenders }, null, 1), 'application/json'); }
+function download(name, content, type){ var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([content], { type: type })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 500); }
+
+/* ---------- boot ---------- */
+function boot(){
+  $('logo').src = TIBARD_LOGO;
+  // token link: #token=...&repo=owner/repo
+  if (location.hash && location.hash.indexOf('token=') >= 0) {
+    var p = new URLSearchParams(location.hash.slice(1));
+    if (p.get('token')) LS.set('token', p.get('token'));
+    if (p.get('repo')) LS.set('repo', p.get('repo'));
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+  S.token = LS.get('token') || ''; S.repo = LS.get('repo') || DEFAULTS.DATA_REPO; S.branch = LS.get('branch') || DEFAULTS.BRANCH;
+  S.mode = S.token ? 'github' : 'local';
+  S.tab = LS.get('tab') || 'kpi';
+  $('refreshBtn').onclick = function(){ S.data = {}; loadAll().then(render); };
+  $('settingsBtn').onclick = openSettings;
+  render();
+  loadAll().then(function(){ restoreUser(); if (S.user && !userByKey(S.user.key)) S.user = null; render(); });
+  setInterval(function(){ if (S.mode === 'github' && !document.hidden && !$('ovRoot').innerHTML) { S.data = {}; loadAll().then(render); } }, DEFAULTS.REFRESH_MS);
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden && S.mode === 'github' && !$('ovRoot').innerHTML) { S.data = {}; loadAll().then(render); } });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeSheet(); });
+}
+boot();
+</script>
+</body>
+</html>
