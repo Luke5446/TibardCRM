@@ -477,7 +477,7 @@ function render(){
   renderTabs();
   var html = '';
   if (S.mode === 'local') html += '<div class="banner">Local demo mode — data is saved in this browser only. <span class="lnk" onclick="openSettings()">Add a GitHub token in Settings</span> to share with the team.</div>';
-  if (S.error) html += '<div class="banner err">' + h(S.error) + ' <span class="lnk" onclick="openSettings()">Settings</span></div>';
+  if (S.error) html += '<div class="banner err">' + h(S.error) + ' <span class="lnk" onclick="openSettingsGuarded()">Settings</span></div>';
   if (S.mode === 'github' && Object.keys(S.missing).length) html += '<div class="banner">Data files not found in <code>' + h(S.repo) + '</code> — they will be created on first save. <span class="lnk" onclick="seedRepo()">Create them now (with the imported pipeline)</span></div>';
   var tab = S.tab;
   if (tab === 'kpi') html += renderKPI();
@@ -848,6 +848,12 @@ function saveTenderUpdate(id){
 function deleteTender(id){ if (!confirm('Delete this tender?')) return; var T = S.tenders; T.tenders = T.tenders.filter(function(x){ return x.id !== id; }); T.activities = T.activities.filter(function(a){ return a.tenderId !== id; }); save('tenders', S.user.name + ': delete tender'); closeSheet(); render(); }
 
 /* ---------- settings ---------- */
+/* Settings are admin-only once connected; a device with no token yet may open them to paste one */
+function openSettingsGuarded(){
+  if (canEdit('config') || S.mode === 'local') { openSettings(); return; }
+  if (S.user) { toast('Settings are for the admin only'); return; }
+  openPin(function(){ if (canEdit('config')) openSettings(); else toast('Settings are for the admin only'); });
+}
 function openSettings(){
   var admin = canEdit('config');
   var body = '<div class="sec"><h3>Connection</h3><div class="b">' +
@@ -958,7 +964,7 @@ function boot(){
   S.mode = S.token ? 'github' : 'local';
   S.tab = LS.get('tab') || 'kpi';
   $('refreshBtn').onclick = function(){ S.data = {}; loadAll().then(render); };
-  $('settingsBtn').onclick = openSettings;
+  $('settingsBtn').onclick = openSettingsGuarded;
   render();
   loadAll().then(function(){ restoreUser(); if (S.user && !userByKey(S.user.key)) S.user = null; render(); });
   setInterval(function(){ if (S.mode === 'github' && !document.hidden && !$('ovRoot').innerHTML) { S.data = {}; loadAll().then(render); } }, DEFAULTS.REFRESH_MS);
