@@ -296,7 +296,7 @@ function sha256(ascii){
 var S = {
   mode: 'local', token: '', repo: DEFAULTS.DATA_REPO, branch: DEFAULTS.BRANCH,
   cfg: null, data: {}, sage: null, shas: {}, missing: {},
-  board: { rep: '', period: 'fy', basis: 'annual', mv: '', from: '', to: '' },
+  board: { rep: '', period: 'month', basis: 'annual', mv: '', from: '', to: '' },
   user: null, tab: 'kpi', view: {}, filters: {}, period: 'month', loading: false, error: ''
 };
 var LS = { get: function(k){ try { return localStorage.getItem('crm.' + k); } catch(e){ return null; } }, set: function(k, v){ try { localStorage.setItem('crm.' + k, v); } catch(e){} }, del: function(k){ try { localStorage.removeItem('crm.' + k); } catch(e){} } };
@@ -654,22 +654,42 @@ function bdOutcomes(from, to, repKey){
   r.closed = r.won.n + r.lost.n; r.conv = r.closed ? r.won.n / r.closed : null;
   return r;
 }
-function bdLastMeeting(){
-  var t = today();
-  var ms = ((S.cfg && S.cfg.meetings) || []).filter(function(m){ return m.date && m.date <= t; }).sort(bdSort(function(m){ return m.date; }));
-  return ms[ms.length - 1] || null;
-}
 function bdRange(){
-  var t = today(), fy = bdCurrentFY(), b = S.board;
+  var t = today(), fy = bdCurrentFY(), b = S.board, now = bdToDate(t);
   switch (b.period) {
+    case 'week': return { from: bdYmd(bdWeekStart(now)), to: t, label: 'This week' };
+    case '4w': { var d = bdWeekStart(now); d.setDate(d.getDate() - 21); return { from: bdYmd(d), to: t, label: 'Last 4 weeks' }; }
+    case 'fy': return { from: bdFyRange(fy).from, to: t, label: 'FY ' + fy + ' to date' };
     case 'lastfy': { var r = bdFyRange(bdPrevFY(fy)); return { from: r.from, to: r.to, label: 'FY ' + bdPrevFY(fy) }; }
-    case 'meeting': { var m = bdLastMeeting(); return { from: m ? bdDayAfter(m.date) : bdFyRange(fy).from, to: t, label: 'Since ' + (m ? fmtDate(m.date) + (m.label ? ' · ' + m.label : '') : 'start of FY') }; }
-    case '12m': { var d = new Date(); d.setMonth(d.getMonth() - 11); d.setDate(1); return { from: bdYmd(d), to: t, label: 'Last 12 months' }; }
+    case '12m': { var m = new Date(); m.setMonth(m.getMonth() - 11); m.setDate(1); return { from: bdYmd(m), to: t, label: 'Last 12 months' }; }
     case 'all': return { from: '0000-00-00', to: t, label: 'All time' };
     case 'custom': return { from: b.from || '0000-00-00', to: b.to || t, label: (b.from ? fmtDate(b.from) : 'start') + ' – ' + (b.to ? fmtDate(b.to) : 'today') };
-    default: return { from: bdFyRange(fy).from, to: t, label: 'FY ' + fy + ' to date' };
+    default: return { from: t.slice(0, 7) + '-01', to: t, label: 'This month' };
   }
 }
+/* Weeks run Monday to Sunday. */
+function bdWeekStart(d){ var x = new Date(d.getTime()); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); x.setHours(12, 0, 0, 0); return x; }
+function bdWeeksIn(from, to){
+  var t = today(); if (to > t) to = t;
+  if (from === '0000-00-00') { var min = t; bdOpps().forEach(function(x){ var k = (x.events[0].at || '').slice(0, 10); if (k && k < min) min = k; }); from = min; }
+  var keys = [], d = bdWeekStart(bdToDate(from)), end = bdToDate(to);
+  while (d <= end && keys.length < 520) { keys.push(bdYmd(d)); d.setDate(d.getDate() + 7); }
+  return keys.slice(-26);
+}
+/* Lead cohort: opportunities CREATED in the window and what has become of them since. */
+function bdCohort(from, to, repKey){
+  var c = { n: 0, v: 0, won: 0, wonV: 0, lost: 0, hold: 0, open: 0 };
+  bdOpps().forEach(function(x){
+    if (repKey && x.repKey !== repKey) return;
+    var created = ((x.events[0] && x.events[0].at) || x.o.createdAt || '').slice(0, 10);
+    if (!created || created < from || created > to) return;
+    c.n++; c.v += x.value;
+    if (x.o.stage === 'Won') { c.won++; c.wonV += x.value; } else if (x.o.stage === 'Lost') c.lost++; else if (x.o.stage === 'On hold') c.hold++; else c.open++;
+  });
+  c.conv = c.n ? c.won / c.n : null;
+  return c;
+}
+function bdConv(c){ return c.conv == null ? '—' : Math.round(c.conv * 100) + '%'; }
 function bdMonthsIn(from, to){
   var keys = [], t = today().slice(0, 7);
   if (from === '0000-00-00') { var min = t; bdOpps().forEach(function(x){ x.events.forEach(function(e){ var k = (e.at || '').slice(0, 7); if (k && k < min) min = k; }); }); from = min + '-01'; }
@@ -708,7 +728,7 @@ function bdTile(l, v, s, cls, drill){ return '<div class="kpi click ' + (cls || 
 function bdDrill(k){
   var target = 'bdMoves';
   if (k === 'won' || k === 'lost' || k === 'hold' || k === 'new') S.board.mv = k;
-  else if (k === 'conv') target = 'bdYear';
+  else if (k === 'conv') target = 'bdWeeks';
   else if (k === 'sage') target = 'bdSage';
   else if (k === 'open') { S.board.showOpen = true; target = 'bdOpen'; }
   render();
@@ -718,26 +738,28 @@ function bdSetCustom(){ var f = $('bdFrom'), t = $('bdTo'); S.board.from = f ? f
 
 function renderBoard(){
   bdOpps._c = null;
-  var range = bdRange(), repKey = S.board.rep || '', m = bdLastMeeting();
-  var per = [['fy', 'FY ' + bdCurrentFY()], ['lastfy', 'FY ' + bdPrevFY(bdCurrentFY())], ['meeting', 'Since last meeting' + (m ? ' (' + fmtDate(m.date) + ')' : '')], ['12m', '12 months'], ['all', 'All time'], ['custom', 'Custom']];
+  var range = bdRange(), repKey = S.board.rep || '';
+  var per = [['week', 'This week'], ['month', 'This month'], ['4w', 'Last 4 weeks'], ['fy', 'FY ' + bdCurrentFY()], ['lastfy', 'FY ' + bdPrevFY(bdCurrentFY())], ['12m', '12 months'], ['all', 'All time'], ['custom', 'Custom']];
   var html = '<div class="toolbar" style="flex-wrap:wrap;gap:8px"><div class="chips">' + [['', 'Team']].concat(repUsers().map(function(u){ return [u.key, bdFirst(u)]; })).map(function(p){ return '<span class="chip ' + (repKey === p[0] ? 'on' : '') + '" onclick="bdSet(\'rep\',\'' + p[0] + '\')">' + h(p[1]) + '</span>'; }).join('') + '</div></div>';
   html += '<div class="toolbar" style="flex-wrap:wrap;gap:8px"><div class="chips">' + per.map(function(p){ return '<span class="chip ' + (S.board.period === p[0] ? 'on' : '') + '" onclick="bdSet(\'period\',\'' + p[0] + '\')">' + h(p[1]) + '</span>'; }).join('') +
     (S.board.period === 'custom' ? '<input type="date" id="bdFrom" value="' + h(S.board.from) + '" onchange="bdSetCustom()"> <input type="date" id="bdTo" value="' + h(S.board.to) + '" onchange="bdSetCustom()">' : '') + '</div>' +
     '<div class="chips">' + [['annual', 'Annual value'], ['first', 'First order']].map(function(b){ return '<span class="chip gold ' + (S.board.basis === b[0] ? 'on' : '') + '" onclick="bdSet(\'basis\',\'' + b[0] + '\')">' + h(b[1]) + '</span>'; }).join('') + '</div></div>';
 
-  var oc = bdOutcomes(range.from, range.to, repKey);
+  var oc = bdOutcomes(range.from, range.to, repKey), co = bdCohort(range.from, range.to, repKey);
   var mine = bdOpps().filter(function(x){ return !repKey || x.repKey === repKey; });
   var open = mine.filter(function(x){ return bdActive(x.o.stage); }), held = mine.filter(function(x){ return x.o.stage === 'On hold'; });
   var openV = open.reduce(function(s, x){ return s + x.value; }, 0);
   var sg = bdSageRows(repKey), promised = 0, actual = 0, withSage = 0;
   sg.forEach(function(r){ if (r.sp1 != null && r.promised) { withSage++; promised += r.promised; actual += r.sp1 + (r.sp2 || 0); } });
   var who = repKey ? userByKey(repKey).name : 'Team';
-  html += '<div class="card"><h2>' + h(who) + ' · ' + h(range.label) + ' <span class="r">conversion = won ÷ (won + lost) closed in the period</span></h2><div class="body"><div class="kgrid">' +
+  html += '<div class="card"><h2>' + h(who) + ' · ' + h(range.label) + ' <span class="r">lead conversion = leads created in the period that have since been won ÷ leads created</span></h2><div class="body"><div class="kgrid">' +
+    bdTile('New leads', co.n, money(co.v), '', 'new') +
+    bdTile('Lead conversion', bdConv(co), co.won + ' of ' + co.n + ' won · ' + co.lost + ' lost · ' + (co.open + co.hold) + ' open', co.won ? 'good' : '', 'conv') +
     bdTile('Won', oc.won.n, money(oc.won.v), 'good', 'won') + bdTile('Lost', oc.lost.n, money(oc.lost.v), 'warn', 'lost') + bdTile('Deferred', oc.hold.n, money(oc.hold.v), 'hold', 'hold') +
-    bdTile('Conversion', oc.conv == null ? '—' : Math.round(oc.conv * 100) + '%', oc.closed + ' closed', '', 'conv') + bdTile('New leads', oc['new'].n, money(oc['new'].v), '', 'new') +
     bdTile('Open pipeline', open.length, money(openV) + ' · ' + held.length + ' on hold', '', 'open') +
     bdTile('Sage vs promised', withSage ? bdPct(actual, promised) : '—', withSage ? money(actual) + ' of ' + money(promised) + ' · ' + withSage + ' accounts' : 'no Sage spend loaded', '', 'sage') +
     '</div></div></div>';
+  html += bdWeeklyCard(range, repKey);
   html += bdMonthlyCard(range, repKey, false);
   html += bdMovementsCard(range, repKey);
   html += '<div class="rep2">' + bdYearCard(repKey) + bdReasonsCard(range, repKey) + '</div>';
@@ -749,29 +771,53 @@ function renderBoard(){
 /* Won by month: rows = months; columns = reps (team) or outcome columns (one rep). */
 function bdMonthlyCard(range, repKey, compact){
   var keys = bdMonthsIn(range.from, range.to), reps = repKey ? [userByKey(repKey)] : repUsers();
-  var mv = bdMovements(range.from, range.to, repKey), grid = {}, tot = {};
-  function z(){ return { wn: 0, wv: 0, ln: 0, lv: 0, hn: 0, nn: 0 }; }
-  keys.forEach(function(k){ grid[k] = {}; reps.forEach(function(u){ grid[k][u.key] = z(); }); });
-  reps.forEach(function(u){ tot[u.key] = z(); });
-  mv.forEach(function(m){ var g = grid[bdMonthKey(m.at)]; g = g && g[m.x.repKey]; if (!g) return; if (m.kind === 'won') { g.wn++; g.wv += m.x.value; } else if (m.kind === 'lost') { g.ln++; g.lv += m.x.value; } else if (m.kind === 'hold') g.hn++; else if (m.kind === 'new') g.nn++; });
-  var cell = function(n, v){ return n ? '<div class="cell"><b>' + n + '</b><small>' + money(v) + '</small></div>' : '<span style="color:#c4cad4">·</span>'; };
-  var html = '<div class="card"><h2>Won by month <span class="r">' + (compact ? h(range.label) + ' · <span class="lnk" onclick="go(\'board\')">open the Sales Board →</span>' : (repKey ? 'won · lost · deferred · new, with monthly conversion' : 'count and value won per rep, with monthly team conversion')) + '</span></h2><div style="overflow-x:auto"><table class="tbl plain"><thead><tr><th>Month</th>';
-  if (repKey) html += '<th class="num">Won</th><th class="num">Won value</th><th class="num">Lost</th><th class="num">Deferred</th><th class="num">New</th><th class="num">Conv.</th>';
-  else { reps.forEach(function(u){ html += '<th class="num">' + h(bdFirst(u)) + '</th>'; }); html += '<th class="num">Total won</th><th class="num">Lost</th><th class="num">Conv.</th>'; }
+  var wonBy = {}; bdMovements(range.from, range.to, repKey).forEach(function(m){ if (m.kind !== 'won') return; var k = bdMonthKey(m.at); wonBy[k] = wonBy[k] || { n: 0, v: 0 }; wonBy[k].n++; wonBy[k].v += m.x.value; });
+  var cell = function(c){ return c.n ? '<div class="cell"><b>' + c.n + '</b><small>' + c.won + ' won</small></div>' : '<span style="color:#c4cad4">·</span>'; };
+  var html = '<div class="card"><h2>New leads by month <span class="r">' + (compact ? h(range.label) + ' · <span class="lnk" onclick="go(\'board\')">open the Sales Board →</span>' : 'leads created each month' + (repKey ? '' : ' per rep') + ', how many of them have been won, and the business won in the month') + '</span></h2><div style="overflow-x:auto"><table class="tbl plain"><thead><tr><th>Month</th>';
+  if (repKey) html += '<th class="num">Leads</th><th class="num">Won</th><th class="num">Lost</th><th class="num">Deferred</th><th class="num">Open</th><th class="num">Conv.</th><th class="num">Won in month</th>';
+  else { reps.forEach(function(u){ html += '<th class="num">' + h(bdFirst(u)) + '</th>'; }); html += '<th class="num">Leads</th><th class="num">Won</th><th class="num">Conv.</th><th class="num">Won in month</th>'; }
   html += '</tr></thead><tbody>';
-  var g = z();
+  var tw = { n: 0, v: 0 };
   keys.slice().reverse().forEach(function(k){
-    var row = grid[k], mm = z();
-    reps.forEach(function(u){ var c = row[u.key], t = tot[u.key]; ['wn', 'wv', 'ln', 'lv', 'hn', 'nn'].forEach(function(f){ mm[f] += c[f]; t[f] += c[f]; g[f] += c[f]; }); });
-    html += '<tr class="' + (mm.wn || mm.ln || mm.hn || mm.nn ? '' : 'dim') + '"><td>' + bdMonthLabel(k) + '</td>';
-    if (repKey) { var c = row[repKey]; html += '<td class="num">' + c.wn + '</td><td class="num">' + money(c.wv) + '</td><td class="num">' + c.ln + '</td><td class="num">' + c.hn + '</td><td class="num">' + c.nn + '</td><td class="num">' + bdPct(c.wn, c.wn + c.ln) + '</td>'; }
-    else { reps.forEach(function(u){ html += '<td class="num">' + cell(row[u.key].wn, row[u.key].wv) + '</td>'; }); html += '<td class="num">' + cell(mm.wn, mm.wv) + '</td><td class="num">' + mm.ln + '</td><td class="num">' + bdPct(mm.wn, mm.wn + mm.ln) + '</td>'; }
+    var from = k + '-01', d = new Date(+k.slice(0, 4), +k.slice(5, 7), 0), to = bdYmd(d);
+    var c = bdCohort(from, to, repKey), w = wonBy[k] || { n: 0, v: 0 }; tw.n += w.n; tw.v += w.v;
+    html += '<tr class="' + (c.n || w.n ? '' : 'dim') + '"><td>' + bdMonthLabel(k) + '</td>';
+    if (repKey) html += '<td class="num">' + c.n + '</td><td class="num">' + c.won + '</td><td class="num">' + c.lost + '</td><td class="num">' + c.hold + '</td><td class="num">' + c.open + '</td><td class="num">' + bdConv(c) + '</td>';
+    else { reps.forEach(function(u){ html += '<td class="num">' + cell(bdCohort(from, to, u.key)) + '</td>'; }); html += '<td class="num"><b>' + c.n + '</b></td><td class="num">' + c.won + '</td><td class="num">' + bdConv(c) + '</td>'; }
+    html += '<td class="num">' + (w.n ? '<div class="cell"><b>' + w.n + '</b><small>' + money(w.v) + '</small></div>' : '<span style="color:#c4cad4">·</span>') + '</td></tr>';
+  });
+  if (keys.length) {
+    var first = keys[0] + '-01', ld = new Date(+keys[keys.length - 1].slice(0, 4), +keys[keys.length - 1].slice(5, 7), 0), all = bdCohort(first, bdYmd(ld), repKey);
+    html += '<tr class="tot"><td>Total</td>';
+    if (repKey) html += '<td class="num">' + all.n + '</td><td class="num">' + all.won + '</td><td class="num">' + all.lost + '</td><td class="num">' + all.hold + '</td><td class="num">' + all.open + '</td><td class="num">' + bdConv(all) + '</td>';
+    else { reps.forEach(function(u){ html += '<td class="num">' + cell(bdCohort(first, bdYmd(ld), u.key)) + '</td>'; }); html += '<td class="num"><b>' + all.n + '</b></td><td class="num">' + all.won + '</td><td class="num">' + bdConv(all) + '</td>'; }
+    html += '<td class="num"><div class="cell"><b>' + tw.n + '</b><small>' + money(tw.v) + '</small></div></td></tr>';
+  }
+  return html + '</tbody></table></div></div>';
+}
+/* New leads by week (Monday to Sunday), latest first, up to 26 weeks. */
+function bdWeeklyCard(range, repKey){
+  var keys = bdWeeksIn(range.from, range.to), reps = repKey ? [userByKey(repKey)] : repUsers();
+  var html = '<div class="card" id="bdWeeks"><h2>New leads by week <span class="r">week commencing Monday · leads created that week and how many of them have been won so far</span></h2><div style="overflow-x:auto"><table class="tbl plain"><thead><tr><th>Week</th>';
+  if (repKey) html += '<th class="num">Leads</th><th class="num">Won</th><th class="num">Lost</th><th class="num">On hold</th><th class="num">Open</th><th class="num">Conv.</th>';
+  else { reps.forEach(function(u){ html += '<th class="num">' + h(bdFirst(u)) + '</th>'; }); html += '<th class="num">Leads</th><th class="num">Won</th><th class="num">Conv.</th>'; }
+  html += '</tr></thead><tbody>';
+  if (!keys.length) html += '<tr><td colspan="9" class="empty">No weeks in this period</td></tr>';
+  keys.slice().reverse().forEach(function(k){
+    var e = bdToDate(k); e.setDate(e.getDate() + 6); var to = bdYmd(e), c = bdCohort(k, to, repKey);
+    html += '<tr class="' + (c.n ? '' : 'dim') + '"><td>' + fmtDate(k) + '</td>';
+    if (repKey) html += '<td class="num">' + c.n + '</td><td class="num">' + c.won + '</td><td class="num">' + c.lost + '</td><td class="num">' + c.hold + '</td><td class="num">' + c.open + '</td><td class="num">' + bdConv(c) + '</td>';
+    else { reps.forEach(function(u){ var r = bdCohort(k, to, u.key); html += '<td class="num">' + (r.n ? '<div class="cell"><b>' + r.n + '</b><small>' + r.won + ' won</small></div>' : '<span style="color:#c4cad4">·</span>') + '</td>'; }); html += '<td class="num"><b>' + c.n + '</b></td><td class="num">' + c.won + '</td><td class="num">' + bdConv(c) + '</td>'; }
     html += '</tr>';
   });
-  html += '<tr class="tot"><td>Total</td>';
-  if (repKey) html += '<td class="num">' + g.wn + '</td><td class="num">' + money(g.wv) + '</td><td class="num">' + g.ln + '</td><td class="num">' + g.hn + '</td><td class="num">' + g.nn + '</td><td class="num">' + bdPct(g.wn, g.wn + g.ln) + '</td>';
-  else { reps.forEach(function(u){ html += '<td class="num">' + cell(tot[u.key].wn, tot[u.key].wv) + '</td>'; }); html += '<td class="num">' + cell(g.wn, g.wv) + '</td><td class="num">' + g.ln + '</td><td class="num">' + bdPct(g.wn, g.wn + g.ln) + '</td>'; }
-  return html + '</tr></tbody></table></div></div>';
+  if (keys.length) {
+    var e2 = bdToDate(keys[keys.length - 1]); e2.setDate(e2.getDate() + 6); var all = bdCohort(keys[0], bdYmd(e2), repKey);
+    html += '<tr class="tot"><td>' + keys.length + ' weeks</td>';
+    if (repKey) html += '<td class="num">' + all.n + '</td><td class="num">' + all.won + '</td><td class="num">' + all.lost + '</td><td class="num">' + all.hold + '</td><td class="num">' + all.open + '</td><td class="num">' + bdConv(all) + '</td>';
+    else { reps.forEach(function(u){ var r = bdCohort(keys[0], bdYmd(e2), u.key); html += '<td class="num"><div class="cell"><b>' + r.n + '</b><small>' + r.won + ' won</small></div></td>'; }); html += '<td class="num"><b>' + all.n + '</b></td><td class="num">' + all.won + '</td><td class="num">' + bdConv(all) + '</td>'; }
+    html += '</tr>';
+  }
+  return html + '</tbody></table></div></div>';
 }
 /* Compact version for the KPI tab: last 6 months, team. */
 function bdMonthlyKpi(){
@@ -802,13 +848,13 @@ function bdYearCard(repKey){
   var reps = repKey ? [userByKey(repKey)] : repUsers(), fys = {};
   bdOpps().forEach(function(x){ x.events.forEach(function(e){ var f = bdFyOf(e.at); if (f) fys[f] = 1; }); });
   var labels = Object.keys(fys).sort().reverse();
-  var row = function(f, name, oc, cls){ return '<tr class="' + (cls || '') + '"><td>' + h(f) + '</td>' + (repKey ? '' : '<td>' + h(name) + '</td>') + '<td class="num">' + oc.won.n + '</td><td class="num">' + money(oc.won.v) + '</td><td class="num">' + oc.lost.n + '</td><td class="num">' + oc.hold.n + '</td><td class="num">' + oc['new'].n + '</td><td class="num">' + (oc.conv == null ? '—' : Math.round(oc.conv * 100) + '%') + '</td></tr>'; };
-  var html = '<div class="card" id="bdYear"><h2>Conversion by year <span class="r">won ÷ closed per financial year</span></h2><div style="overflow-x:auto"><table class="tbl plain"><thead><tr><th>FY</th>' + (repKey ? '' : '<th>Rep</th>') + '<th class="num">Won</th><th class="num">Value</th><th class="num">Lost</th><th class="num">Def.</th><th class="num">New</th><th class="num">Conv.</th></tr></thead><tbody>';
-  if (!labels.length) html += '<tr><td colspan="8" class="empty">No data</td></tr>';
+  var row = function(f, name, oc, c, cls){ return '<tr class="' + (cls || '') + '"><td>' + h(f) + '</td>' + (repKey ? '' : '<td>' + h(name) + '</td>') + '<td class="num">' + c.n + '</td><td class="num">' + c.won + '</td><td class="num">' + bdConv(c) + '</td><td class="num">' + oc.won.n + '</td><td class="num">' + money(oc.won.v) + '</td><td class="num">' + oc.lost.n + '</td><td class="num">' + oc.hold.n + '</td></tr>'; };
+  var html = '<div class="card" id="bdYear"><h2>By financial year <span class="r">leads created in the year and how many were won; then business won, lost and deferred in the year</span></h2><div style="overflow-x:auto"><table class="tbl plain"><thead><tr><th>FY</th>' + (repKey ? '' : '<th>Rep</th>') + '<th class="num">Leads</th><th class="num">Of which won</th><th class="num">Conv.</th><th class="num">Won</th><th class="num">Value</th><th class="num">Lost</th><th class="num">Def.</th></tr></thead><tbody>';
+  if (!labels.length) html += '<tr><td colspan="9" class="empty">No data</td></tr>';
   labels.forEach(function(f){
     var r = bdFyRange(f);
-    reps.forEach(function(u){ html += row(f, bdFirst(u), bdOutcomes(r.from, r.to, u.key)); });
-    if (!repKey && reps.length > 1) html += row(f, 'Team', bdOutcomes(r.from, r.to, ''), 'tot');
+    reps.forEach(function(u){ html += row(f, bdFirst(u), bdOutcomes(r.from, r.to, u.key), bdCohort(r.from, r.to, u.key)); });
+    if (!repKey && reps.length > 1) html += row(f, 'Team', bdOutcomes(r.from, r.to, ''), bdCohort(r.from, r.to, ''), 'tot');
   });
   return html + '</tbody></table></div></div>';
 }
@@ -843,20 +889,6 @@ function bdOpenCard(mine){
       '<td class="num">' + (o.nextActionDue ? '<span class="due ' + dueClass(o.nextActionDue) + '">' + fmtDate(o.nextActionDue) + '</span>' : '—') + '</td><td class="num hm">' + (la == null ? '—' : (la >= stale ? '<span class="var warn">' + la + 'd</span>' : la + 'd')) + '</td><td class="num hm">' + (age == null ? '—' : age + 'd') + '</td></tr>';
   });
   return html + '</tbody></table></div></div>';
-}
-
-/* meetings (admin, Settings) */
-function addMeeting(){
-  var f = readForm(); if (!f.mDate) { alert('Pick a date'); return; }
-  S.cfg.meetings = (S.cfg.meetings || []).filter(function(m){ return m.date !== f.mDate; });
-  S.cfg.meetings.push({ date: f.mDate, label: (f.mLabel || '').trim() });
-  S.cfg.meetings.sort(bdSort(function(m){ return m.date; }));
-  save('config', S.user.name + ': add meeting ' + f.mDate).then(openSettings);
-}
-function removeMeeting(date){
-  if (!confirm('Remove the meeting on ' + fmtDate(date) + '?')) return;
-  S.cfg.meetings = (S.cfg.meetings || []).filter(function(m){ return m.date !== date; });
-  save('config', S.user.name + ': remove meeting ' + date).then(openSettings);
 }
 
 /* ---------- rep pipeline ---------- */
@@ -992,9 +1024,19 @@ function openUpdate(key, id){
   setTimeout(function(){ var t = $('sb').querySelector('textarea'); if (t) t.focus(); }, 60);
 }
 function pickChip(el){ el.parentNode.querySelectorAll('.chip').forEach(function(c){ c.classList.remove('on'); }); el.classList.add('on'); }
+/* Won date defaults to the date the Sage account was opened (from the spend file); the rep can override it, e.g. an old account won back. */
+function sageOpened(code, keep){
+  var hint = $('sageHint'), w = $('sb') && $('sb').querySelector('[data-f=wonDate]'); if (!hint || !w) return;
+  code = (code || '').trim().toUpperCase();
+  var cu = code && S.sage && S.sage.customers ? S.sage.customers[code] : null;
+  if (!code) { hint.textContent = 'Type the Sage account number: the won date is taken from when the account was opened in Sage.'; return; }
+  if (!cu) { hint.textContent = 'Not in the Sage spend file' + (S.sage && S.sage.updatedAt ? ' (uploaded ' + fmtDate(S.sage.updatedAt) + ')' : '') + '. The won date stays as entered.'; return; }
+  if (cu.opened) { if (!keep) w.value = cu.opened; hint.textContent = (cu.name ? cu.name + ': ' : '') + 'Sage account opened ' + fmtDate(cu.opened) + (keep ? '. Won date kept as entered.' : ', used as the won date. Change it if this is an old account won back.'); }
+  else hint.textContent = (cu.name || code) + ' found in Sage, but the file has no account-opened date yet.';
+}
 function stageExtra(stage, o, acc){
   var el = $('stageExtra'); if (!el) return; o = o || {}; acc = acc || {};
-  if (stage === 'Won') el.innerHTML = fld('Won on', 'wonDate', o.wonDate || today(), 'date') + fld('Sage account code', 'sageCode', acc.sageCode || '', 'text', { ph: 'e.g. ASC001' });
+  if (stage === 'Won') { el.innerHTML = fld('Won on', 'wonDate', o.wonDate || today(), 'date') + fld('Sage account code', 'sageCode', acc.sageCode || '', 'text', { ph: 'e.g. 1127B', attrs: ' oninput="sageOpened(this.value, false)" autocapitalize="characters"' }) + '<div class="muted" id="sageHint" style="grid-column:1/-1"></div>'; sageOpened(acc.sageCode || '', !!o.wonDate); }
   else if (stage === 'Lost') el.innerHTML = fld('Lost reason', 'lostReason', o.lostReason || '', 'text', { span: true, ph: 'Pick or type a reason', list: 'lostReasons' }) + reasonList('lostReasons', lostReasons());
   else if (stage === 'On hold') el.innerHTML = fld('Why on hold?', 'holdReason', o.holdReason || '', 'text', { ph: 'Pick or type a reason', list: 'holdReasons' }) + fld('Revisit on', 'holdUntil', o.holdUntil || '', 'date') + reasonList('holdReasons', holdReasons());
   else el.innerHTML = '';
@@ -1117,12 +1159,8 @@ function openSettings(){
       '<div class="help" style="margin-top:10px">Reps get their own pipeline file and everyone can see every pipeline and the Sales Board. Admins can also manage users and PINs. To change stages/sectors, edit <code>' + h(DEFAULTS.CONFIG_PATH) + '</code> in the data repo.</div></div></div>';
   }
   if (admin) {
-    var ms = (S.cfg.meetings || []).slice().sort(by('date', 'desc'));
-    body += '<div class="sec"><h3>Board / sales meetings</h3><div class="b"><div class="help" style="margin-bottom:8px">The Sales Board reconciles pipeline movements since the latest meeting date. Add a row after each meeting.</div>' +
-      (ms.length ? '<table class="tbl plain"><tbody>' + ms.map(function(m){ return '<tr><td>' + fmtDate(m.date) + '</td><td>' + h(m.label || '') + '</td><td style="text-align:right"><button class="btn btn-sm btn-red" onclick="removeMeeting(\'' + m.date + '\')">Remove</button></td></tr>'; }).join('') + '</tbody></table>' : '<div class="muted">No meetings recorded yet.</div>') +
-      '<div class="grid" style="margin-top:10px">' + fld('Meeting date', 'mDate', today(), 'date') + fld('Label', 'mLabel', '', 'text', { ph: 'e.g. November sales meeting' }) + '</div><div class="row" style="margin-top:8px"><button class="btn btn-gold" onclick="addMeeting()">Add meeting</button></div></div></div>';
     body += '<div class="sec"><h3>Sage spend</h3><div class="b help">' + (S.sage ? 'Loaded <b>' + Object.keys(S.sage.customers || {}).length + '</b> customers from <code>' + h(S.cfg.sagePath || DEFAULTS.SAGE_PATH) + '</code>, updated ' + fmtDate(S.sage.updatedAt) + '.' : 'No <code>' + h(S.cfg.sagePath || DEFAULTS.SAGE_PATH) + '</code> in the data repo yet.') +
-      ' Won accounts are matched on their Sage account code.' +
+      ' Won accounts are matched on their Sage account code; an Opened column sets the won date.' +
       '<div style="margin-top:8px"><b>Refresh from Sage:</b> export to CSV and upload it here. Any of these layouts work, with column names as Sage 50 or Sage 200 produce them: <b>customer list</b> with Account Number and Turnover This Year / Last Year (quickest), <b>invoice or transaction lines</b> such as the Sales Day Book or a transaction listing, with Account, Date, Type and Net or Goods Value (invoices count, credit notes are subtracted, receipts are ignored, grouped by financial year starting month ' + (S.cfg.fyStartMonth || 2) + '), or a sheet of Code, FY, Spend. Excel exports: save as CSV first.</div>' +
       '<div class="grid" style="margin-top:8px">' + fld('How to apply', 'sageMode', 'merge', 'select', { options: [['merge', 'Merge: update the years in the file, keep the rest'], ['replace', 'Replace: start the spend figures again']] }) + '<div class="field"><label>Sage CSV export</label><input type="file" id="sageCsv" accept=".csv,text/csv"></div></div>' +
       '<div class="row" style="margin-top:8px"><button class="btn btn-gold" onclick="importSageCSV()">Upload &amp; save</button></div></div></div>';
@@ -1168,7 +1206,8 @@ var SAGE_COLS = {
   fy: ['fy', 'financialyear', 'year'], spend: ['spend', 'annualspend', 'turnover', 'sales'],
   thisYear: ['turnoverthisyear', 'thisyear', 'thisyearturnover', 'turnoverytd', 'ytd', 'ytdturnover', 'currentyear', 'turnovercurrentyear', 'salesthisyear', 'turnoveryeartodate', 'yeartodate'],
   lastYear: ['turnoverlastyear', 'lastyear', 'lastyearturnover', 'prioryear', 'previousyear', 'turnoverprioryear', 'turnoverpreviousyear', 'saleslastyear'],
-  type: ['type', 'transactiontype', 'trantype', 'trantype', 'doctype', 'documenttype', 'tt']
+  type: ['type', 'transactiontype', 'trantype', 'doctype', 'documenttype', 'tt'],
+  opened: ['opened', 'dateopened', 'openeddate', 'dateaccountopened', 'accountopened', 'accountopeneddate', 'datecreated', 'created']
 };
 /* Sage transaction types: invoices count, credit notes subtract, receipts / payments / allocations are ignored. */
 function sageSign(t){ t = String(t || '').trim().toLowerCase(); if (!t) return 1; if (/^(sc|scr|cr|crn)$|credit/.test(t)) return -1; if (/^(si|inv)$|invoice/.test(t)) return 1; return 0; }
@@ -1180,7 +1219,7 @@ function importSageCSV(){
     var rows = parseCSV(text); if (rows.length < 2) throw new Error('No rows found');
     var head = rows[0].map(function(h){ return h.toLowerCase().replace(/[^a-z0-9]/g, ''); });
     var col = function(k){ for (var i = 0; i < head.length; i++) if (SAGE_COLS[k].indexOf(head[i]) >= 0) return i; return -1; };
-    var ci = { code: col('code'), name: col('name'), date: col('date'), net: col('net'), fy: col('fy'), spend: col('spend'), thisYear: col('thisYear'), lastYear: col('lastYear'), type: col('type') };
+    var ci = { code: col('code'), name: col('name'), date: col('date'), net: col('net'), fy: col('fy'), spend: col('spend'), thisYear: col('thisYear'), lastYear: col('lastYear'), type: col('type'), opened: col('opened') };
     if (ci.code < 0) throw new Error('No account code column (A/C, Account Number, Account Ref or Code)');
     var layout = (ci.fy >= 0 && ci.spend >= 0) ? 'summary' : ci.thisYear >= 0 ? 'turnover' : (ci.date >= 0 && ci.net >= 0) ? 'lines' : '';
     if (!layout) throw new Error('Need Date + Net columns (invoice lines), Turnover This Year [+ Last Year] (customer list), or FY + Spend');
@@ -1192,6 +1231,7 @@ function importSageCSV(){
       var code = (r[ci.code] || '').trim().toUpperCase(); if (!code) return;
       var cu = sage.customers[code] = sage.customers[code] || { name: '', spend: {} };
       if (ci.name >= 0 && r[ci.name] && !cu.name) cu.name = r[ci.name].trim();
+      if (ci.opened >= 0) { var od = sageDate(r[ci.opened]); if (od) cu.opened = od; }
       var fy, amt;
       if (layout === 'turnover') {
         cu.spend[fyNow] = Math.round(sageNum(r[ci.thisYear]) * 100) / 100;
