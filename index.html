@@ -183,6 +183,8 @@ code{font-family:Consolas,monospace;font-size:12.5px;background:#eef1f6;padding:
 .hideM{display:initial}@media(max-width:700px){.hideM{display:none!important}}
 .onlyM{display:none}@media(max-width:700px){.onlyM{display:initial}}
 @media(max-width:700px){.hm{display:none!important}}
+.kpi.click{cursor:pointer;transition:box-shadow .15s}.kpi.click:hover{border-color:var(--steel);box-shadow:0 2px 8px rgba(31,56,100,.12)}
+.card{scroll-margin-top:64px}
 .tbl.plain tr{cursor:default}.tbl.plain tr:hover td{background:inherit}
 .tbl tr.tot td{font-weight:700;background:#f7f9fc;border-top:2px solid var(--line)}
 .tbl tr.dim td{color:#aab2bf}
@@ -701,6 +703,17 @@ function bdSpendLine(acc){
   return ks.length ? ks.map(function(k){ return '<span class="stg">' + h(k) + ' ' + money(sg.spend[k]) + '</span>'; }).join(' ') : '<span class="var na">No spend yet</span>';
 }
 function bdSet(k, v){ S.board[k] = v; if (k === 'period' || k === 'rep') S.board.mv = ''; render(); }
+/* KPI tiles drill down: filter the movements list, or jump to the matching card. */
+function bdTile(l, v, s, cls, drill){ return '<div class="kpi click ' + (cls || '') + '" onclick="bdDrill(\'' + drill + '\')" title="Show the detail"><div class="l">' + h(l) + '</div><div class="v">' + h(v) + '</div>' + (s ? '<div class="s">' + h(s) + '</div>' : '') + '</div>'; }
+function bdDrill(k){
+  var target = 'bdMoves';
+  if (k === 'won' || k === 'lost' || k === 'hold' || k === 'new') S.board.mv = k;
+  else if (k === 'conv') target = 'bdYear';
+  else if (k === 'sage') target = 'bdSage';
+  else if (k === 'open') { S.board.showOpen = true; target = 'bdOpen'; }
+  render();
+  var el = $(target); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 function bdSetCustom(){ var f = $('bdFrom'), t = $('bdTo'); S.board.from = f ? f.value : ''; S.board.to = t ? t.value : ''; render(); }
 
 function renderBoard(){
@@ -720,16 +733,16 @@ function renderBoard(){
   sg.forEach(function(r){ if (r.sp1 != null && r.promised) { withSage++; promised += r.promised; actual += r.sp1 + (r.sp2 || 0); } });
   var who = repKey ? userByKey(repKey).name : 'Team';
   html += '<div class="card"><h2>' + h(who) + ' · ' + h(range.label) + ' <span class="r">conversion = won ÷ (won + lost) closed in the period</span></h2><div class="body"><div class="kgrid">' +
-    tile('Won', oc.won.n, money(oc.won.v), 'good') + tile('Lost', oc.lost.n, money(oc.lost.v), 'warn') + tile('Deferred', oc.hold.n, money(oc.hold.v), 'hold') +
-    tile('Conversion', oc.conv == null ? '—' : Math.round(oc.conv * 100) + '%', oc.closed + ' closed') + tile('New leads', oc['new'].n, money(oc['new'].v)) +
-    tile('Open pipeline', open.length, money(openV) + ' · ' + held.length + ' on hold') +
-    tile('Sage vs promised', withSage ? bdPct(actual, promised) : '—', withSage ? money(actual) + ' of ' + money(promised) + ' · ' + withSage + ' accounts' : 'no Sage spend loaded') +
+    bdTile('Won', oc.won.n, money(oc.won.v), 'good', 'won') + bdTile('Lost', oc.lost.n, money(oc.lost.v), 'warn', 'lost') + bdTile('Deferred', oc.hold.n, money(oc.hold.v), 'hold', 'hold') +
+    bdTile('Conversion', oc.conv == null ? '—' : Math.round(oc.conv * 100) + '%', oc.closed + ' closed', '', 'conv') + bdTile('New leads', oc['new'].n, money(oc['new'].v), '', 'new') +
+    bdTile('Open pipeline', open.length, money(openV) + ' · ' + held.length + ' on hold', '', 'open') +
+    bdTile('Sage vs promised', withSage ? bdPct(actual, promised) : '—', withSage ? money(actual) + ' of ' + money(promised) + ' · ' + withSage + ' accounts' : 'no Sage spend loaded', '', 'sage') +
     '</div></div></div>';
   html += bdMonthlyCard(range, repKey, false);
   html += bdMovementsCard(range, repKey);
   html += '<div class="rep2">' + bdYearCard(repKey) + bdReasonsCard(range, repKey) + '</div>';
   html += bdSageCard(repKey);
-  if (repKey) html += bdOpenCard(mine);
+  if (repKey || S.board.showOpen) html += bdOpenCard(mine);
   return html;
 }
 
@@ -770,7 +783,7 @@ function bdMonthlyKpi(){
 function bdMovementsCard(range, repKey){
   var mv = bdMovements(range.from, range.to, repKey), counts = {}, vals = {};
   mv.forEach(function(m){ counts[m.kind] = (counts[m.kind] || 0) + 1; vals[m.kind] = (vals[m.kind] || 0) + m.x.value; });
-  var html = '<div class="card"><h2>Pipeline movements <span class="r">' + h(range.label) + ' · every stage change, so nothing drops off unexplained</span></h2><div class="body">';
+  var html = '<div class="card" id="bdMoves"><h2>Pipeline movements <span class="r">' + h(range.label) + ' · every stage change, so nothing drops off unexplained</span></h2><div class="body">';
   html += '<div class="mv">' + BD_KINDS.map(function(k){ return '<div class="m ' + k[2] + (S.board.mv === k[0] ? ' on' : '') + '" onclick="bdSet(\'mv\', S.board.mv === \'' + k[0] + '\' ? \'\' : \'' + k[0] + '\')"><div class="l">' + h(k[1]) + '</div><div class="v">' + (counts[k[0]] || 0) + '</div><div class="s">' + money(vals[k[0]] || 0) + '</div></div>'; }).join('') + '</div>';
   var shown = S.board.mv ? mv.filter(function(m){ return m.kind === S.board.mv; }) : mv.filter(function(m){ return m.kind !== 'new'; });
   if (!shown.length) html += '<div class="empty">' + (S.board.mv ? 'None in this period.' : 'No movements in this period. Tap <b>New leads</b> to list new opportunities.') + '</div>';
@@ -790,7 +803,7 @@ function bdYearCard(repKey){
   bdOpps().forEach(function(x){ x.events.forEach(function(e){ var f = bdFyOf(e.at); if (f) fys[f] = 1; }); });
   var labels = Object.keys(fys).sort().reverse();
   var row = function(f, name, oc, cls){ return '<tr class="' + (cls || '') + '"><td>' + h(f) + '</td>' + (repKey ? '' : '<td>' + h(name) + '</td>') + '<td class="num">' + oc.won.n + '</td><td class="num">' + money(oc.won.v) + '</td><td class="num">' + oc.lost.n + '</td><td class="num">' + oc.hold.n + '</td><td class="num">' + oc['new'].n + '</td><td class="num">' + (oc.conv == null ? '—' : Math.round(oc.conv * 100) + '%') + '</td></tr>'; };
-  var html = '<div class="card"><h2>Conversion by year <span class="r">won ÷ closed per financial year</span></h2><div style="overflow-x:auto"><table class="tbl plain"><thead><tr><th>FY</th>' + (repKey ? '' : '<th>Rep</th>') + '<th class="num">Won</th><th class="num">Value</th><th class="num">Lost</th><th class="num">Def.</th><th class="num">New</th><th class="num">Conv.</th></tr></thead><tbody>';
+  var html = '<div class="card" id="bdYear"><h2>Conversion by year <span class="r">won ÷ closed per financial year</span></h2><div style="overflow-x:auto"><table class="tbl plain"><thead><tr><th>FY</th>' + (repKey ? '' : '<th>Rep</th>') + '<th class="num">Won</th><th class="num">Value</th><th class="num">Lost</th><th class="num">Def.</th><th class="num">New</th><th class="num">Conv.</th></tr></thead><tbody>';
   if (!labels.length) html += '<tr><td colspan="8" class="empty">No data</td></tr>';
   labels.forEach(function(f){
     var r = bdFyRange(f);
@@ -807,7 +820,7 @@ function bdReasonsCard(range, repKey){
 }
 function bdSageCard(repKey){
   var rows = bdSageRows(repKey), upd = S.sage && S.sage.updatedAt ? 'Sage data updated ' + fmtDate(S.sage.updatedAt) : 'no Sage spend file loaded';
-  var html = '<div class="card"><h2>Won accounts · promised vs actual spend <span class="r">' + h(upd) + '</span></h2><div style="overflow-x:auto">';
+  var html = '<div class="card" id="bdSage"><h2>Won accounts · promised vs actual spend <span class="r">' + h(upd) + '</span></h2><div style="overflow-x:auto">';
   if (!rows.length) return html + '<div class="empty">No won opportunities yet.</div></div></div>';
   html += '<table class="tbl"><thead><tr><th>Won</th>' + (repKey ? '' : '<th class="hm">Rep</th>') + '<th>Company</th><th class="hm">Sage</th><th class="num">Promised / yr</th><th class="num">FY won</th><th class="num hm">FY after</th><th>Status</th></tr></thead><tbody>';
   rows.forEach(function(r){
@@ -817,11 +830,11 @@ function bdSageCard(repKey){
       '<td class="num">' + (r.promised ? money(r.promised) : '—') + '</td><td class="num"><div class="cell"><b>' + (r.sp1 == null ? '—' : money(r.sp1)) + '</b><small>' + h(r.fy) + '</small></div></td><td class="num hm"><div class="cell"><b>' + (r.sp2 == null ? '—' : money(r.sp2)) + '</b><small>' + h(r.nfy) + '</small></div></td>' +
       '<td>' + bdVarBadge(r.promised, r.sp1 == null ? null : Math.max(r.sp1, r.sp2 || 0)) + '</td></tr>';
   });
-  return html + '</tbody></table></div><div class="muted" style="padding:6px 12px">Promise = annual value on the opportunity. Actual = Sage net sales in the financial year won and the year after (best year shown in the status). Refresh with <code>tools/sage_import.py</code> in the data repo.</div></div>';
+  return html + '</tbody></table></div><div class="muted" style="padding:6px 12px">Promise = annual value on the opportunity. Actual = Sage net sales in the financial year won and the year after (best year shown in the status). Refresh in Settings → Sage spend.</div></div>';
 }
 function bdOpenCard(mine){
   var open = mine.filter(function(x){ return ['Won', 'Lost'].indexOf(x.o.stage) < 0; }).sort(bdSort(function(x){ return bdStageIdx(x.o.stage); })), stale = S.cfg.staleDays || 30;
-  var html = '<div class="card"><h2>Open pipeline <span class="r">' + open.length + ' incl. on hold</span></h2><div style="overflow-x:auto">';
+  var html = '<div class="card" id="bdOpen"><h2>Open pipeline <span class="r">' + open.length + ' incl. on hold</span></h2><div style="overflow-x:auto">';
   if (!open.length) return html + '<div class="empty">Nothing open.</div></div></div>';
   html += '<table class="tbl"><thead><tr><th>Stage</th><th>Company</th><th class="num">Value</th><th class="hm">Next action</th><th class="num">Due</th><th class="num hm">Last touch</th><th class="num hm">Age</th></tr></thead><tbody>';
   open.forEach(function(x){
