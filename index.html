@@ -189,6 +189,21 @@ code{font-family:Consolas,monospace;font-size:12.5px;background:#eef1f6;padding:
 .tbl tr{cursor:pointer}.tbl tr:hover td{background:#f2f6fc}
 .hideM{display:initial}@media(max-width:700px){.hideM{display:none!important}}
 .onlyM{display:none}@media(max-width:700px){.onlyM{display:initial}}
+@media(max-width:700px){.hm{display:none!important}}
+.tbl.plain tr{cursor:default}.tbl.plain tr:hover td{background:inherit}
+.tbl tr.tot td{font-weight:700;background:#f7f9fc;border-top:2px solid var(--line)}
+.tbl tr.dim td{color:#aab2bf}
+.tbl .cell{line-height:1.25}.tbl .cell b{display:block;color:var(--navy)}.tbl .cell small{color:var(--mut)}
+.kpi.hold .v{color:#b7791f}.kpi.good .v{color:var(--green)}
+.mv{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px}
+.mv .m{border-radius:10px;padding:10px 12px;color:#fff;cursor:pointer;opacity:.92}
+.mv .m.on,.mv .m:hover{opacity:1;outline:3px solid rgba(0,0,0,.12)}
+.mv .m .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;font-weight:600;opacity:.9}
+.mv .m .v{font-size:22px;font-weight:700;line-height:1.1}.mv .m .s{font-size:11px;opacity:.9}
+.m.won{background:var(--green)}.m.lost{background:var(--red)}.m.hold{background:#b7791f}.m.new{background:var(--navy2)}.m.prog{background:var(--steel)}.m.react{background:#0e6b73}
+.var{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap}
+.var.good{background:#d1fae5;color:#065f46}.var.warn{background:#fef3c7;color:#92400e}.var.bad{background:#fee2e2;color:#991b1b}.var.na{background:#eef1f6;color:#6b7686}
+.toolbar input[type=date]{border:1px solid var(--line);border-radius:6px;padding:5px 8px;font:inherit;font-size:12px}
 </style>
 </head>
 <body>
@@ -220,6 +235,7 @@ var DEFAULTS = {
   BRANCH: 'main',
   CONFIG_PATH: 'data/config.json',
   TENDERS_PATH: 'data/tenders.json',
+  SAGE_PATH: 'data/sage.json',       // Sage net sales per customer per FY (optional)
   REFRESH_MS: 5 * 60 * 1000
 };
 var TIBARD_LOGO = 'data:image/jpeg;base64,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';
@@ -285,7 +301,8 @@ function sha256(ascii){
 /* ---------- state ---------- */
 var S = {
   mode: 'local', token: '', repo: DEFAULTS.DATA_REPO, branch: DEFAULTS.BRANCH,
-  cfg: null, data: {}, tenders: null, shas: {}, missing: {},
+  cfg: null, data: {}, tenders: null, sage: null, shas: {}, missing: {},
+  board: { rep: '', period: 'fy', basis: 'annual', mv: '', from: '', to: '' },
   user: null, tab: 'kpi', view: {}, filters: {}, period: 'month', loading: false, error: ''
 };
 var LS = { get: function(k){ try { return localStorage.getItem('crm.' + k); } catch(e){ return null; } }, set: function(k, v){ try { localStorage.setItem('crm.' + k, v); } catch(e){} }, del: function(k){ try { localStorage.removeItem('crm.' + k); } catch(e){} } };
@@ -388,6 +405,8 @@ function loadAll(){
         S.data[u.key] = d;
       });
     });
+    var sagePath = S.cfg.sagePath || DEFAULTS.SAGE_PATH;
+    reads.push(readFile(sagePath, null).then(function(sg){ S.sage = sg; delete S.missing[sagePath]; }));
     reads.push(readFile(DEFAULTS.TENDERS_PATH, null).then(function(t){ S.tenders = t || emptyTenders(); if (!t && S.mode === 'local') LS.set('file.' + DEFAULTS.TENDERS_PATH, JSON.stringify(S.tenders)); }));
     return Promise.all(reads);
   }).then(function(){
@@ -459,7 +478,7 @@ function kpisFor(repKey, period){
 var ICONS = { Call: '📞', Email: '✉️', Meeting: '🤝', Samples: '📦', Quote: '💷', Note: '📝', Stage: '🔀', Created: '✨', Tender: '📄' };
 
 function renderTabs(){
-  var tabs = [{ k: 'kpi', l: 'KPIs' }];
+  var tabs = [{ k: 'kpi', l: 'KPIs' }, { k: 'board', l: 'Sales Board' }];
   repUsers().forEach(function(u){ var rep = S.data[u.key]; var n = rep ? rep.opportunities.filter(isActive).length : 0; tabs.push({ k: u.key, l: u.name.split(' ')[0], n: n, lock: !canEdit(u.key) }); });
   tabs.push({ k: 'tenders', l: 'Tenders', n: S.tenders ? S.tenders.tenders.filter(function(t){ return ['Won', 'Lost', 'No bid'].indexOf(t.stage) < 0; }).length : 0, lock: !canEdit('tenders') });
   tabs.push({ k: 'dir', l: 'Directory' });
@@ -481,6 +500,7 @@ function render(){
   if (S.mode === 'github' && Object.keys(S.missing).length) html += '<div class="banner">Data files not found in <code>' + h(S.repo) + '</code> — they will be created on first save. <span class="lnk" onclick="seedRepo()">Create them now (with the imported pipeline)</span></div>';
   var tab = S.tab;
   if (tab === 'kpi') html += renderKPI();
+  else if (tab === 'board') html += renderBoard();
   else if (tab === 'tenders') html += renderTenders();
   else if (tab === 'dir') html += renderDirectory();
   else if (S.data[tab]) html += renderRep(tab);
@@ -498,6 +518,7 @@ function renderKPI(){
   var p = S.period, pl = { week: 'This week', month: 'This month', quarter: 'Last 3 months', fy: fyLabel(), all: 'All time' };
   var html = '<div class="toolbar"><div class="chips">' + Object.keys(pl).map(function(k){ return '<span class="chip ' + (p === k ? 'on' : '') + '" onclick="S.period=\'' + k + '\';render()">' + h(pl[k]) + '</span>'; }).join('') + '</div><div class="spacer" style="flex:1"></div><button class="btn btn-sm" onclick="exportCSV()">Export CSV</button></div>';
 
+  html += bdMonthlyKpi();
   var reps = repUsers();
   html += '<div class="rep2">';
   reps.forEach(function(u){
@@ -555,6 +576,289 @@ function renderKPI(){
 }
 function tile(l, v, s, cls){ return '<div class="kpi ' + (cls || '') + '"><div class="l">' + h(l) + '</div><div class="v">' + h(v) + '</div>' + (s ? '<div class="s">' + h(s) + '</div>' : '') + '</div>'; }
 function attLi(x){ return '<li onclick="' + x.open + '"><span class="due ' + x.cls + '" style="font-weight:700;white-space:nowrap">' + h(x.t) + '</span><span>' + h(x.s) + '</span><span class="who">' + h(x.who) + '</span></li>'; }
+
+/* =====================================================================
+   Sales Board — pipeline reconciliation, conversion and Sage spend
+   ===================================================================== */
+var BD_LOST_REASONS = ['Price', 'Stayed with incumbent', 'Chose competitor', 'No budget', 'Project cancelled', 'No response', 'Spec / product fit', 'Other'];
+var BD_HOLD_REASONS = ['Budget next year', 'Awaiting decision', 'Contract not up yet', 'Contact changed', 'Seasonal', 'Other'];
+var BD_KINDS = [['won', 'Won', 'won'], ['lost', 'Lost', 'lost'], ['hold', 'Deferred (on hold)', 'hold'], ['react', 'Reactivated', 'react'], ['new', 'New leads', 'new'], ['prog', 'Progressed', 'prog'], ['back', 'Moved back', 'prog']];
+var BD_STAGE_RX = /Stage:\s*(.+?)\s*(?:→|->|=>)\s*([^\n.;|]+)/;
+var BD_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function lostReasons(){ return (S.cfg && S.cfg.lostReasons && S.cfg.lostReasons.length) ? S.cfg.lostReasons : BD_LOST_REASONS; }
+function holdReasons(){ return (S.cfg && S.cfg.holdReasons && S.cfg.holdReasons.length) ? S.cfg.holdReasons : BD_HOLD_REASONS; }
+function reasonList(id, arr){ return '<datalist id="' + id + '">' + arr.map(function(r){ return '<option value="' + h(r) + '">'; }).join('') + '</datalist>'; }
+function logStage(o, from, to){ (o.stageHistory = o.stageHistory || []).push({ at: nowISO(), from: from || null, to: to, by: S.user ? S.user.name : 'Unknown' }); }
+
+function bdV(x){ var n = +x; return isNaN(n) ? 0 : n; }
+function bdPct(a, b){ return b ? Math.round(100 * a / b) + '%' : '—'; }
+function bdSort(fn, dir){ return function(a, b){ var x = fn(a), y = fn(b); return (x < y ? -1 : x > y ? 1 : 0) * (dir || 1); }; }
+function bdYmd(d){ return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function bdToDate(iso){ if (!iso) return null; var d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso + 'T12:00:00' : iso); return isNaN(d) ? null : d; }
+function bdDaysSince(iso){ var d = bdToDate(iso); return d ? Math.floor((Date.now() - d) / 864e5) : null; }
+function bdDayAfter(ymd){ var x = bdToDate(ymd); x.setDate(x.getDate() + 1); return bdYmd(x); }
+function bdMonthKey(iso){ var d = bdToDate(iso); return d ? d.getFullYear() + '-' + pad(d.getMonth() + 1) : ''; }
+function bdMonthLabel(key){ var p = key.split('-'); return BD_MONTHS[+p[1] - 1] + ' ' + p[0].slice(2); }
+function bdFyMonth(){ return (S.cfg && S.cfg.fyStartMonth) || 2; }
+function bdFyOf(iso){ var d = bdToDate(iso); if (!d) return ''; var y = d.getMonth() + 1 >= bdFyMonth() ? d.getFullYear() : d.getFullYear() - 1; return y + '/' + pad((y + 1) % 100); }
+function bdFyRange(label){ var y = +label.split('/')[0], m = bdFyMonth(); return { from: bdYmd(new Date(y, m - 1, 1)), to: bdYmd(new Date(y + 1, m - 1, 0)) }; }
+function bdCurrentFY(){ return bdFyOf(today()); }
+function bdPrevFY(label){ var y = +label.split('/')[0] - 1; return y + '/' + pad((y + 1) % 100); }
+function bdFirst(u){ return (u.name || u.key).split(' ')[0]; }
+function bdStageIdx(s){ var i = (S.cfg.stages || []).indexOf(s); return i < 0 ? 99 : i; }
+function bdActive(s){ return ['Won', 'Lost', 'On hold'].indexOf(s) < 0; }
+function bdValue(o){ return S.board.basis === 'first' ? bdV(o.firstOrderValue) : (bdV(o.annualValue) || bdV(o.firstOrderValue)); }
+
+/* Every opportunity with its normalised stage events {at, from, to, by}: from stageHistory,
+   else rebuilt from "Stage: A → B" activity notes, else from the current stage / wonDate. */
+function bdOpps(){
+  if (bdOpps._c && bdOpps._basis === S.board.basis) return bdOpps._c;
+  var out = [];
+  repUsers().forEach(function(u){
+    var rep = S.data[u.key]; if (!rep) return;
+    var acts = {}; (rep.activities || []).forEach(function(a){ if (a.oppId) (acts[a.oppId] = acts[a.oppId] || []).push(a); });
+    (rep.opportunities || []).forEach(function(o){ out.push({ o: o, acc: accOf(rep, o.accountId), rep: u, repKey: u.key, events: bdEvents(o, acts[o.id] || []), value: bdValue(o) }); });
+  });
+  bdOpps._c = out; bdOpps._basis = S.board.basis;
+  return out;
+}
+function bdEvents(o, acts){
+  var ev = [];
+  if (o.stageHistory && o.stageHistory.length) {
+    o.stageHistory.forEach(function(e){ ev.push({ at: e.at, from: e.from || null, to: e.to, by: e.by || '' }); });
+    if (ev[0].from) ev.unshift({ at: o.createdAt || ev[0].at, from: null, to: ev[0].from, by: o.createdBy || '' });
+  } else {
+    var trans = [];
+    acts.slice().sort(bdSort(function(a){ return a.at || ''; })).forEach(function(a){ var m = BD_STAGE_RX.exec(a.note || ''); if (m) trans.push({ at: a.at, from: m[1].trim(), to: m[2].trim(), by: a.by || '' }); });
+    ev.push({ at: o.createdAt, from: null, to: trans.length ? trans[0].from : (o.stage === 'Won' ? 'Account set-up' : o.stage), by: o.createdBy || '' });
+    ev = ev.concat(trans);
+  }
+  var last = ev[ev.length - 1];
+  if (last.to !== o.stage) ev.push({ at: o.stage === 'Won' && o.wonDate ? o.wonDate + 'T12:00:00' : (o.updatedAt || o.createdAt), from: last.to, to: o.stage, by: o.updatedBy || '' });
+  if (o.stage === 'Won' && o.wonDate) { for (var i = ev.length - 1; i >= 0; i--) if (ev[i].to === 'Won') { ev[i].at = o.wonDate + 'T12:00:00'; break; } }
+  return ev;
+}
+function bdMovements(from, to, repKey){
+  var rows = [];
+  bdOpps().forEach(function(x){
+    if (repKey && x.repKey !== repKey) return;
+    x.events.forEach(function(e){
+      var d = (e.at || '').slice(0, 10); if (!d || d < from || d > to) return;
+      var kind;
+      if (e.from === null) kind = 'new';
+      else if (e.to === 'Won') kind = 'won';
+      else if (e.to === 'Lost') kind = 'lost';
+      else if (e.to === 'On hold') kind = 'hold';
+      else if ((e.from === 'On hold' || e.from === 'Lost') && bdActive(e.to)) kind = 'react';
+      else if (bdStageIdx(e.to) > bdStageIdx(e.from)) kind = 'prog';
+      else kind = 'back';
+      if (kind === 'new' && x.events.length === 1 && (e.to === 'Won' || e.to === 'Lost')) kind = e.to === 'Won' ? 'won' : 'lost';
+      rows.push({ x: x, e: e, kind: kind, at: e.at });
+    });
+  });
+  return rows.sort(bdSort(function(r){ return r.at || ''; }, -1));
+}
+function bdKindLabel(k){ for (var i = 0; i < BD_KINDS.length; i++) if (BD_KINDS[i][0] === k) return BD_KINDS[i][1]; return k; }
+function bdOutcomes(from, to, repKey){
+  var r = { won: { n: 0, v: 0 }, lost: { n: 0, v: 0 }, hold: { n: 0, v: 0 }, 'new': { n: 0, v: 0 } };
+  bdMovements(from, to, repKey).forEach(function(m){ if (r[m.kind]) { r[m.kind].n++; r[m.kind].v += m.x.value; } });
+  r.closed = r.won.n + r.lost.n; r.conv = r.closed ? r.won.n / r.closed : null;
+  return r;
+}
+function bdLastMeeting(){
+  var t = today();
+  var ms = ((S.cfg && S.cfg.meetings) || []).filter(function(m){ return m.date && m.date <= t; }).sort(bdSort(function(m){ return m.date; }));
+  return ms[ms.length - 1] || null;
+}
+function bdRange(){
+  var t = today(), fy = bdCurrentFY(), b = S.board;
+  switch (b.period) {
+    case 'lastfy': { var r = bdFyRange(bdPrevFY(fy)); return { from: r.from, to: r.to, label: 'FY ' + bdPrevFY(fy) }; }
+    case 'meeting': { var m = bdLastMeeting(); return { from: m ? bdDayAfter(m.date) : bdFyRange(fy).from, to: t, label: 'Since ' + (m ? fmtDate(m.date) + (m.label ? ' · ' + m.label : '') : 'start of FY') }; }
+    case '12m': { var d = new Date(); d.setMonth(d.getMonth() - 11); d.setDate(1); return { from: bdYmd(d), to: t, label: 'Last 12 months' }; }
+    case 'all': return { from: '0000-00-00', to: t, label: 'All time' };
+    case 'custom': return { from: b.from || '0000-00-00', to: b.to || t, label: (b.from ? fmtDate(b.from) : 'start') + ' – ' + (b.to ? fmtDate(b.to) : 'today') };
+    default: return { from: bdFyRange(fy).from, to: t, label: 'FY ' + fy + ' to date' };
+  }
+}
+function bdMonthsIn(from, to){
+  var keys = [], t = today().slice(0, 7);
+  if (from === '0000-00-00') { var min = t; bdOpps().forEach(function(x){ x.events.forEach(function(e){ var k = (e.at || '').slice(0, 7); if (k && k < min) min = k; }); }); from = min + '-01'; }
+  var d = new Date(+from.slice(0, 4), +from.slice(5, 7) - 1, 1), end = to.slice(0, 7); if (end > t) end = t;
+  while (keys.length < 120) { var k = d.getFullYear() + '-' + pad(d.getMonth() + 1); if (k > end) break; keys.push(k); d.setMonth(d.getMonth() + 1); }
+  return keys;
+}
+function bdSageFor(acc){ var code = (acc.sageCode || '').trim().toUpperCase(); if (!code || !S.sage || !S.sage.customers) return null; return S.sage.customers[code] || null; }
+function bdSageRows(repKey){
+  var rows = [];
+  bdOpps().forEach(function(x){
+    if (x.o.stage !== 'Won' || (repKey && x.repKey !== repKey)) return;
+    var wonAt = x.o.wonDate || (x.events.filter(function(e){ return e.to === 'Won'; }).pop() || {}).at || x.o.updatedAt;
+    var fy = bdFyOf(wonAt), y = fy ? +fy.split('/')[0] + 1 : 0, nfy = fy ? y + '/' + pad((y + 1) % 100) : '';
+    var sg = bdSageFor(x.acc), sp = sg ? (sg.spend || {}) : null;
+    rows.push({ x: x, wonAt: wonAt, fy: fy, nfy: nfy, sage: sg, promised: bdV(x.o.annualValue), sp1: sg ? bdV(sp[fy]) : null, sp2: sg ? bdV(sp[nfy]) : null });
+  });
+  return rows.sort(bdSort(function(r){ return r.wonAt || ''; }, -1));
+}
+function bdVarBadge(promised, actual){
+  if (actual == null) return '<span class="var na">No Sage data</span>';
+  if (!promised) return '<span class="var na">No promise</span>';
+  var r = actual / promised, cls = r >= 0.8 ? 'good' : r >= 0.5 ? 'warn' : 'bad';
+  return '<span class="var ' + cls + '">' + Math.round(r * 100) + '% of promise</span>';
+}
+function bdSpendLine(acc){
+  var sg = bdSageFor(acc);
+  if (!acc.sageCode) return '<span class="var bad">No Sage code</span>';
+  if (!sg) return '<span class="var na">Not in Sage file</span>';
+  var ks = Object.keys(sg.spend || {}).sort();
+  return ks.length ? ks.map(function(k){ return '<span class="stg">' + h(k) + ' ' + money(sg.spend[k]) + '</span>'; }).join(' ') : '<span class="var na">No spend yet</span>';
+}
+function bdSet(k, v){ S.board[k] = v; if (k === 'period' || k === 'rep') S.board.mv = ''; render(); }
+function bdSetCustom(){ var f = $('bdFrom'), t = $('bdTo'); S.board.from = f ? f.value : ''; S.board.to = t ? t.value : ''; render(); }
+
+function renderBoard(){
+  bdOpps._c = null;
+  var range = bdRange(), repKey = S.board.rep || '', m = bdLastMeeting();
+  var per = [['fy', 'FY ' + bdCurrentFY()], ['lastfy', 'FY ' + bdPrevFY(bdCurrentFY())], ['meeting', 'Since last meeting' + (m ? ' (' + fmtDate(m.date) + ')' : '')], ['12m', '12 months'], ['all', 'All time'], ['custom', 'Custom']];
+  var html = '<div class="toolbar" style="flex-wrap:wrap;gap:8px"><div class="chips">' + [['', 'Team']].concat(repUsers().map(function(u){ return [u.key, bdFirst(u)]; })).map(function(p){ return '<span class="chip ' + (repKey === p[0] ? 'on' : '') + '" onclick="bdSet(\'rep\',\'' + p[0] + '\')">' + h(p[1]) + '</span>'; }).join('') + '</div></div>';
+  html += '<div class="toolbar" style="flex-wrap:wrap;gap:8px"><div class="chips">' + per.map(function(p){ return '<span class="chip ' + (S.board.period === p[0] ? 'on' : '') + '" onclick="bdSet(\'period\',\'' + p[0] + '\')">' + h(p[1]) + '</span>'; }).join('') +
+    (S.board.period === 'custom' ? '<input type="date" id="bdFrom" value="' + h(S.board.from) + '" onchange="bdSetCustom()"> <input type="date" id="bdTo" value="' + h(S.board.to) + '" onchange="bdSetCustom()">' : '') + '</div>' +
+    '<div class="chips">' + [['annual', 'Annual value'], ['first', 'First order']].map(function(b){ return '<span class="chip gold ' + (S.board.basis === b[0] ? 'on' : '') + '" onclick="bdSet(\'basis\',\'' + b[0] + '\')">' + h(b[1]) + '</span>'; }).join('') + '</div></div>';
+
+  var oc = bdOutcomes(range.from, range.to, repKey);
+  var mine = bdOpps().filter(function(x){ return !repKey || x.repKey === repKey; });
+  var open = mine.filter(function(x){ return bdActive(x.o.stage); }), held = mine.filter(function(x){ return x.o.stage === 'On hold'; });
+  var openV = open.reduce(function(s, x){ return s + x.value; }, 0);
+  var sg = bdSageRows(repKey), promised = 0, actual = 0, withSage = 0;
+  sg.forEach(function(r){ if (r.sp1 != null) { withSage++; promised += r.promised; actual += r.sp1 + (r.sp2 || 0); } });
+  var who = repKey ? userByKey(repKey).name : 'Team';
+  html += '<div class="card"><h2>' + h(who) + ' · ' + h(range.label) + ' <span class="r">conversion = won ÷ (won + lost) closed in the period</span></h2><div class="body"><div class="kgrid">' +
+    tile('Won', oc.won.n, money(oc.won.v), 'good') + tile('Lost', oc.lost.n, money(oc.lost.v), 'warn') + tile('Deferred', oc.hold.n, money(oc.hold.v), 'hold') +
+    tile('Conversion', oc.conv == null ? '—' : Math.round(oc.conv * 100) + '%', oc.closed + ' closed') + tile('New leads', oc['new'].n, money(oc['new'].v)) +
+    tile('Open pipeline', open.length, money(openV) + ' · ' + held.length + ' on hold') +
+    tile('Sage vs promised', withSage ? bdPct(actual, promised) : '—', withSage ? money(actual) + ' of ' + money(promised) + ' · ' + withSage + ' accounts' : 'no Sage spend loaded') +
+    '</div></div></div>';
+  html += bdMonthlyCard(range, repKey, false);
+  html += bdMovementsCard(range, repKey);
+  html += '<div class="rep2">' + bdYearCard(repKey) + bdReasonsCard(range, repKey) + '</div>';
+  html += bdSageCard(repKey);
+  if (repKey) html += bdOpenCard(mine);
+  return html;
+}
+
+/* Won by month: rows = months; columns = reps (team) or outcome columns (one rep). */
+function bdMonthlyCard(range, repKey, compact){
+  var keys = bdMonthsIn(range.from, range.to), reps = repKey ? [userByKey(repKey)] : repUsers();
+  var mv = bdMovements(range.from, range.to, repKey), grid = {}, tot = {};
+  function z(){ return { wn: 0, wv: 0, ln: 0, lv: 0, hn: 0, nn: 0 }; }
+  keys.forEach(function(k){ grid[k] = {}; reps.forEach(function(u){ grid[k][u.key] = z(); }); });
+  reps.forEach(function(u){ tot[u.key] = z(); });
+  mv.forEach(function(m){ var g = grid[bdMonthKey(m.at)]; g = g && g[m.x.repKey]; if (!g) return; if (m.kind === 'won') { g.wn++; g.wv += m.x.value; } else if (m.kind === 'lost') { g.ln++; g.lv += m.x.value; } else if (m.kind === 'hold') g.hn++; else if (m.kind === 'new') g.nn++; });
+  var cell = function(n, v){ return n ? '<div class="cell"><b>' + n + '</b><small>' + money(v) + '</small></div>' : '<span style="color:#c4cad4">·</span>'; };
+  var html = '<div class="card"><h2>Won by month <span class="r">' + (compact ? h(range.label) + ' · <span class="lnk" onclick="go(\'board\')">open the Sales Board →</span>' : (repKey ? 'won · lost · deferred · new, with monthly conversion' : 'count and value won per rep, with monthly team conversion')) + '</span></h2><div style="overflow-x:auto"><table class="tbl plain"><thead><tr><th>Month</th>';
+  if (repKey) html += '<th class="num">Won</th><th class="num">Won value</th><th class="num">Lost</th><th class="num">Deferred</th><th class="num">New</th><th class="num">Conv.</th>';
+  else { reps.forEach(function(u){ html += '<th class="num">' + h(bdFirst(u)) + '</th>'; }); html += '<th class="num">Total won</th><th class="num">Lost</th><th class="num">Conv.</th>'; }
+  html += '</tr></thead><tbody>';
+  var g = z();
+  keys.slice().reverse().forEach(function(k){
+    var row = grid[k], mm = z();
+    reps.forEach(function(u){ var c = row[u.key], t = tot[u.key]; ['wn', 'wv', 'ln', 'lv', 'hn', 'nn'].forEach(function(f){ mm[f] += c[f]; t[f] += c[f]; g[f] += c[f]; }); });
+    html += '<tr class="' + (mm.wn || mm.ln || mm.hn || mm.nn ? '' : 'dim') + '"><td>' + bdMonthLabel(k) + '</td>';
+    if (repKey) { var c = row[repKey]; html += '<td class="num">' + c.wn + '</td><td class="num">' + money(c.wv) + '</td><td class="num">' + c.ln + '</td><td class="num">' + c.hn + '</td><td class="num">' + c.nn + '</td><td class="num">' + bdPct(c.wn, c.wn + c.ln) + '</td>'; }
+    else { reps.forEach(function(u){ html += '<td class="num">' + cell(row[u.key].wn, row[u.key].wv) + '</td>'; }); html += '<td class="num">' + cell(mm.wn, mm.wv) + '</td><td class="num">' + mm.ln + '</td><td class="num">' + bdPct(mm.wn, mm.wn + mm.ln) + '</td>'; }
+    html += '</tr>';
+  });
+  html += '<tr class="tot"><td>Total</td>';
+  if (repKey) html += '<td class="num">' + g.wn + '</td><td class="num">' + money(g.wv) + '</td><td class="num">' + g.ln + '</td><td class="num">' + g.hn + '</td><td class="num">' + g.nn + '</td><td class="num">' + bdPct(g.wn, g.wn + g.ln) + '</td>';
+  else { reps.forEach(function(u){ html += '<td class="num">' + cell(tot[u.key].wn, tot[u.key].wv) + '</td>'; }); html += '<td class="num">' + cell(g.wn, g.wv) + '</td><td class="num">' + g.ln + '</td><td class="num">' + bdPct(g.wn, g.wn + g.ln) + '</td>'; }
+  return html + '</tr></tbody></table></div></div>';
+}
+/* Compact version for the KPI tab: last 6 months, team. */
+function bdMonthlyKpi(){
+  bdOpps._c = null;
+  var d = new Date(); d.setMonth(d.getMonth() - 5); d.setDate(1);
+  return bdMonthlyCard({ from: bdYmd(d), to: today(), label: 'last 6 months · annual value' }, '', true);
+}
+
+function bdMovementsCard(range, repKey){
+  var mv = bdMovements(range.from, range.to, repKey), counts = {}, vals = {};
+  mv.forEach(function(m){ counts[m.kind] = (counts[m.kind] || 0) + 1; vals[m.kind] = (vals[m.kind] || 0) + m.x.value; });
+  var html = '<div class="card"><h2>Pipeline movements <span class="r">' + h(range.label) + ' · every stage change, so nothing drops off unexplained</span></h2><div class="body">';
+  html += '<div class="mv">' + BD_KINDS.map(function(k){ return '<div class="m ' + k[2] + (S.board.mv === k[0] ? ' on' : '') + '" onclick="bdSet(\'mv\', S.board.mv === \'' + k[0] + '\' ? \'\' : \'' + k[0] + '\')"><div class="l">' + h(k[1]) + '</div><div class="v">' + (counts[k[0]] || 0) + '</div><div class="s">' + money(vals[k[0]] || 0) + '</div></div>'; }).join('') + '</div>';
+  var shown = S.board.mv ? mv.filter(function(m){ return m.kind === S.board.mv; }) : mv.filter(function(m){ return m.kind !== 'new'; });
+  if (!shown.length) html += '<div class="empty">' + (S.board.mv ? 'None in this period.' : 'No movements in this period. Tap <b>New leads</b> to list new opportunities.') + '</div>';
+  else {
+    html += '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Date</th><th>Movement</th>' + (repKey ? '' : '<th class="hm">Rep</th>') + '<th>Company</th><th class="hm">Stage</th><th class="num">Value</th><th class="hm">Reason / note</th></tr></thead><tbody>';
+    shown.slice(0, 300).forEach(function(m){
+      var o = m.x.o, reason = m.kind === 'lost' ? (o.lostReason || '') : m.kind === 'hold' ? ((o.holdReason || '') + (o.holdUntil ? ' · until ' + fmtDate(o.holdUntil) : '')) : m.kind === 'won' ? ((o.annualValue ? 'Promised ' + money(o.annualValue) + '/yr' : '') + (m.x.acc.sageCode ? ' · ' + m.x.acc.sageCode : '')) : (o.nextAction || '');
+      html += '<tr onclick="openOpp(\'' + m.x.repKey + '\',\'' + o.id + '\')"><td>' + fmtDate(m.at) + '</td><td><span class="stg" data-s="' + h(m.e.to) + '">' + h(bdKindLabel(m.kind)) + '</span></td>' + (repKey ? '' : '<td class="hm">' + h(bdFirst(m.x.rep)) + '</td>') +
+        '<td><div class="cell"><b>' + h(m.x.acc.name) + '</b><small>' + h(o.title || '') + '</small></div></td><td class="hm">' + (m.e.from ? '<span class="stg" data-s="' + h(m.e.from) + '">' + h(m.e.from) + '</span> → ' : '') + '<span class="stg" data-s="' + h(m.e.to) + '">' + h(m.e.to) + '</span></td><td class="num">' + money(m.x.value) + '</td><td class="hm">' + h(reason) + '</td></tr>';
+    });
+    html += '</tbody></table></div>' + (shown.length > 300 ? '<div class="muted" style="padding:6px 0">Showing the latest 300 of ' + shown.length + '.</div>' : '');
+  }
+  return html + '</div></div>';
+}
+function bdYearCard(repKey){
+  var reps = repKey ? [userByKey(repKey)] : repUsers(), fys = {};
+  bdOpps().forEach(function(x){ x.events.forEach(function(e){ var f = bdFyOf(e.at); if (f) fys[f] = 1; }); });
+  var labels = Object.keys(fys).sort().reverse();
+  var row = function(f, name, oc, cls){ return '<tr class="' + (cls || '') + '"><td>' + h(f) + '</td>' + (repKey ? '' : '<td>' + h(name) + '</td>') + '<td class="num">' + oc.won.n + '</td><td class="num">' + money(oc.won.v) + '</td><td class="num">' + oc.lost.n + '</td><td class="num">' + oc.hold.n + '</td><td class="num">' + oc['new'].n + '</td><td class="num">' + (oc.conv == null ? '—' : Math.round(oc.conv * 100) + '%') + '</td></tr>'; };
+  var html = '<div class="card"><h2>Conversion by year <span class="r">won ÷ closed per financial year</span></h2><div style="overflow-x:auto"><table class="tbl plain"><thead><tr><th>FY</th>' + (repKey ? '' : '<th>Rep</th>') + '<th class="num">Won</th><th class="num">Value</th><th class="num">Lost</th><th class="num">Def.</th><th class="num">New</th><th class="num">Conv.</th></tr></thead><tbody>';
+  if (!labels.length) html += '<tr><td colspan="8" class="empty">No data</td></tr>';
+  labels.forEach(function(f){
+    var r = bdFyRange(f);
+    reps.forEach(function(u){ html += row(f, bdFirst(u), bdOutcomes(r.from, r.to, u.key)); });
+    if (!repKey && reps.length > 1) html += row(f, 'Team', bdOutcomes(r.from, r.to, ''), 'tot');
+  });
+  return html + '</tbody></table></div></div>';
+}
+function bdReasonsCard(range, repKey){
+  var c = {};
+  bdMovements(range.from, range.to, repKey).forEach(function(m){ if (m.kind !== 'lost' && m.kind !== 'hold') return; var k = bdKindLabel(m.kind) + ' · ' + ((m.kind === 'lost' ? m.x.o.lostReason : m.x.o.holdReason) || '(no reason given)'); c[k] = (c[k] || 0) + 1; });
+  var keys = Object.keys(c).sort(function(a, b){ return c[b] - c[a]; }), max = keys.length ? c[keys[0]] : 1;
+  return '<div class="card"><h2>Why lost or deferred <span class="r">' + h(range.label) + '</span></h2><div class="body">' + (keys.length ? '<div class="bars">' + keys.map(function(k){ return '<div class="bar"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px" title="' + h(k) + '">' + h(k) + '</span><div class="t"><i style="width:' + Math.round(100 * c[k] / max) + '%;background:' + (k.indexOf('Lost') === 0 ? 'var(--red)' : '#b7791f') + '"></i></div><span class="n">' + c[k] + '</span></div>'; }).join('') + '</div>' : '<div class="empty">Nothing lost or deferred in this period.</div>') + '</div></div>';
+}
+function bdSageCard(repKey){
+  var rows = bdSageRows(repKey), upd = S.sage && S.sage.updatedAt ? 'Sage data updated ' + fmtDate(S.sage.updatedAt) : 'no Sage spend file loaded';
+  var html = '<div class="card"><h2>Won accounts · promised vs actual spend <span class="r">' + h(upd) + '</span></h2><div style="overflow-x:auto">';
+  if (!rows.length) return html + '<div class="empty">No won opportunities yet.</div></div></div>';
+  html += '<table class="tbl"><thead><tr><th>Won</th>' + (repKey ? '' : '<th class="hm">Rep</th>') + '<th>Company</th><th class="hm">Sage</th><th class="num">Promised / yr</th><th class="num">FY won</th><th class="num hm">FY after</th><th>Status</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    var code = (r.x.acc.sageCode || '').toUpperCase();
+    html += '<tr onclick="openOpp(\'' + r.x.repKey + '\',\'' + r.x.o.id + '\')"><td>' + fmtDate(r.wonAt) + '</td>' + (repKey ? '' : '<td class="hm">' + h(bdFirst(r.x.rep)) + '</td>') +
+      '<td><div class="cell"><b>' + h(r.x.acc.name) + '</b><small>' + (code ? h(code) : '<span class="var bad">No Sage code</span>') + (r.x.o.firstOrderValue ? ' · first order ' + money(r.x.o.firstOrderValue) : '') + '</small></div></td><td class="hm">' + h(code || '—') + '</td>' +
+      '<td class="num">' + (r.promised ? money(r.promised) : '—') + '</td><td class="num"><div class="cell"><b>' + (r.sp1 == null ? '—' : money(r.sp1)) + '</b><small>' + h(r.fy) + '</small></div></td><td class="num hm"><div class="cell"><b>' + (r.sp2 == null ? '—' : money(r.sp2)) + '</b><small>' + h(r.nfy) + '</small></div></td>' +
+      '<td>' + bdVarBadge(r.promised, r.sp1 == null ? null : Math.max(r.sp1, r.sp2 || 0)) + '</td></tr>';
+  });
+  return html + '</tbody></table></div><div class="muted" style="padding:6px 12px">Promise = annual value on the opportunity. Actual = Sage net sales in the financial year won and the year after (best year shown in the status). Refresh with <code>tools/sage_import.py</code> in the data repo.</div></div>';
+}
+function bdOpenCard(mine){
+  var open = mine.filter(function(x){ return ['Won', 'Lost'].indexOf(x.o.stage) < 0; }).sort(bdSort(function(x){ return bdStageIdx(x.o.stage); })), stale = S.cfg.staleDays || 30;
+  var html = '<div class="card"><h2>Open pipeline <span class="r">' + open.length + ' incl. on hold</span></h2><div style="overflow-x:auto">';
+  if (!open.length) return html + '<div class="empty">Nothing open.</div></div></div>';
+  html += '<table class="tbl"><thead><tr><th>Stage</th><th>Company</th><th class="num">Value</th><th class="hm">Next action</th><th class="num">Due</th><th class="num hm">Last touch</th><th class="num hm">Age</th></tr></thead><tbody>';
+  open.forEach(function(x){
+    var o = x.o, la = bdDaysSince(o.lastActivityAt || o.updatedAt), age = bdDaysSince(o.createdAt);
+    html += '<tr onclick="openOpp(\'' + x.repKey + '\',\'' + o.id + '\')"><td><span class="stg" data-s="' + h(o.stage) + '">' + h(o.stage) + '</span></td><td><div class="cell"><b>' + h(x.acc.name) + '</b><small>' + h(o.title || '') + (o.stage === 'On hold' && o.holdUntil ? ' · hold until ' + fmtDate(o.holdUntil) : '') + '</small></div></td><td class="num">' + money(x.value) + '</td><td class="hm">' + h(o.nextAction || '') + '</td>' +
+      '<td class="num">' + (o.nextActionDue ? '<span class="due ' + dueClass(o.nextActionDue) + '">' + fmtDate(o.nextActionDue) + '</span>' : '—') + '</td><td class="num hm">' + (la == null ? '—' : (la >= stale ? '<span class="var warn">' + la + 'd</span>' : la + 'd')) + '</td><td class="num hm">' + (age == null ? '—' : age + 'd') + '</td></tr>';
+  });
+  return html + '</tbody></table></div></div>';
+}
+
+/* meetings (admin, Settings) */
+function addMeeting(){
+  var f = readForm(); if (!f.mDate) { alert('Pick a date'); return; }
+  S.cfg.meetings = (S.cfg.meetings || []).filter(function(m){ return m.date !== f.mDate; });
+  S.cfg.meetings.push({ date: f.mDate, label: (f.mLabel || '').trim() });
+  S.cfg.meetings.sort(bdSort(function(m){ return m.date; }));
+  save('config', S.user.name + ': add meeting ' + f.mDate).then(openSettings);
+}
+function removeMeeting(date){
+  if (!confirm('Remove the meeting on ' + fmtDate(date) + '?')) return;
+  S.cfg.meetings = (S.cfg.meetings || []).filter(function(m){ return m.date !== date; });
+  save('config', S.user.name + ': remove meeting ' + date).then(openSettings);
+}
 
 /* ---------- rep pipeline ---------- */
 function renderRep(key){
@@ -647,7 +951,7 @@ function fld(label, name, value, type, opts){
   opts = opts || {};
   var cls = 'field' + (opts.span ? ' span2' : '') + (opts.mspan ? ' mspan' : '');
   var inner;
-  if (type === 'select') inner = '<select data-f="' + name + '">' + (opts.blank ? '<option value="">' + h(opts.blank) + '</option>' : '') + opts.options.map(function(o){ var v = Array.isArray(o) ? o[0] : o, l = Array.isArray(o) ? o[1] : o; return '<option value="' + h(v) + '"' + (String(value) === String(v) ? ' selected' : '') + '>' + h(l) + '</option>'; }).join('') + '</select>';
+  if (type === 'select') inner = '<select data-f="' + name + '"' + (opts.attrs || '') + '>' + (opts.blank ? '<option value="">' + h(opts.blank) + '</option>' : '') + opts.options.map(function(o){ var v = Array.isArray(o) ? o[0] : o, l = Array.isArray(o) ? o[1] : o; return '<option value="' + h(v) + '"' + (String(value) === String(v) ? ' selected' : '') + '>' + h(l) + '</option>'; }).join('') + '</select>';
   else if (type === 'textarea') inner = '<textarea data-f="' + name + '" placeholder="' + h(opts.ph || '') + '">' + h(value || '') + '</textarea>';
   else inner = '<input data-f="' + name + '" type="' + (type || 'text') + '" value="' + h(value == null ? '' : value) + '" placeholder="' + h(opts.ph || '') + '"' + (opts.list ? ' list="' + opts.list + '"' : '') + (type === 'number' ? ' inputmode="decimal"' : '') + (opts.attrs || '') + '>';
   return '<div class="' + cls + '"><label>' + h(label) + '</label>' + inner + '</div>';
@@ -677,7 +981,7 @@ function openOpp(key, id){
   // deal
   body += '<div class="sec"><h3>Opportunity' + (ed ? '<span class="r"><button class="btn btn-sm" onclick="editDeal(\'' + key + '\',\'' + id + '\')">Edit</button></span>' : '') + '</h3><div class="b"><div class="kv">' +
     kv('Title', o.title) + kv('1st order value', money(o.firstOrderValue)) + kv('Annual value', money(o.annualValue)) + kv('% chance', o.probability != null ? o.probability + '%' : '—') + kv('Weighted', money(weighted(o))) + kv('Expected start', o.expectedStart || '—') +
-    (o.stage === 'Won' ? kv('Won on', fmtDate(o.wonDate)) : '') + (o.stage === 'Lost' ? kv('Lost reason', o.lostReason || '—') : '') + (o.stage === 'On hold' ? kv('Revisit', fmtDate(o.holdUntil || o.nextActionDue)) : '') +
+    (o.stage === 'Won' ? kv('Won on', fmtDate(o.wonDate)) : '') + (o.stage === 'Lost' ? kv('Lost reason', o.lostReason || '—') : '') + (o.stage === 'On hold' ? kv('Revisit', fmtDate(o.holdUntil || o.nextActionDue)) + kv('Hold reason', o.holdReason || '—') : '') + (o.stage === 'Won' ? kv('Sage spend', bdSpendLine(acc), true) : '') +
     '<div class="wide"><b>Next action</b><span><span class="due ' + dueClass(o.nextActionDue) + '" style="font-weight:700">' + (o.nextActionDue ? fmtDate(o.nextActionDue) + ' (' + dueLabel(o.nextActionDue) + ')' : 'no date') + '</span> — ' + h(o.nextAction || '—') + '</span></div>' +
     '</div></div></div>';
   // company
@@ -689,7 +993,7 @@ function openOpp(key, id){
     (cs.length ? cs.map(function(c){ return '<div class="contact"><div><div class="nm">' + h(c.name) + (c.primary ? ' <span class="stg">main</span>' : '') + '</div><div class="rl">' + h(c.role || '') + (c.email ? ' · ' + h(c.email) : '') + (c.phone ? ' · ' + h(c.phone) : '') + '</div></div><div class="acts">' + (c.phone ? '<a href="tel:' + h(c.phone) + '" title="Call">📞</a>' : '') + (c.email ? '<a href="mailto:' + h(c.email) + '" title="Email">✉️</a>' : '') + (ed ? '<button onclick="editContact(\'' + key + '\',\'' + id + '\',\'' + c.id + '\')" title="Edit">✎</button>' : '') + '</div></div>'; }).join('') : '<div class="muted">No contacts yet</div>') + '</div></div>';
   // timeline
   body += '<div class="sec"><h3>Timeline <span class="r muted">' + acts.length + ' entries</span></h3><div class="b">' + (acts.length ? '<ul class="tl">' + acts.map(function(a){ return '<li><div class="ic">' + (ICONS[a.type] || '📝') + '</div><div><div class="hd"><b>' + h(a.type) + '</b><span>' + fmtDT(a.at) + '</span><span>' + h(a.by) + '</span>' + (a.source ? '<span>(' + h(a.source) + ')</span>' : '') + '</div><div class="nt">' + h(a.note) + '</div>' + (a.nextAction ? '<div class="nx">→ ' + h(a.nextAction) + (a.nextActionDue ? ' by ' + fmtDate(a.nextActionDue) : '') + '</div>' : '') + '</div></li>'; }).join('') + '</ul>' : '<div class="muted">No updates yet</div>') + '</div></div>';
-  var foot = ed ? '<button class="btn btn-gold" onclick="openUpdate(\'' + key + '\',\'' + id + '\')">+ Add update</button><button class="btn btn-red" style="flex:0 0 auto" onclick="deleteOpp(\'' + key + '\',\'' + id + '\')">Delete</button>' : (S.user ? '' : '<button class="btn" onclick="openPin(function(){openOpp(\'' + key + '\',\'' + id + '\')})">Enter PIN to edit</button>');
+  var foot = ed ? '<button class="btn btn-gold" onclick="openUpdate(\'' + key + '\',\'' + id + '\')">+ Add update</button>' + (canEdit('config') ? '<button class="btn btn-red" style="flex:0 0 auto" onclick="deleteOpp(\'' + key + '\',\'' + id + '\')">Delete</button>' : '') : (S.user ? '' : '<button class="btn" onclick="openPin(function(){openOpp(\'' + key + '\',\'' + id + '\')})">Enter PIN to edit</button>');
   openSheet(h(acc.name), body, foot);
 }
 function kv(l, v, raw){ return '<div><b>' + h(l) + '</b><span>' + (raw ? v : h(v == null || v === '' ? '—' : v)) + '</span></div>'; }
@@ -710,8 +1014,8 @@ function pickChip(el){ el.parentNode.querySelectorAll('.chip').forEach(function(
 function stageExtra(stage, o, acc){
   var el = $('stageExtra'); if (!el) return; o = o || {}; acc = acc || {};
   if (stage === 'Won') el.innerHTML = fld('Won on', 'wonDate', o.wonDate || today(), 'date') + fld('Sage account code', 'sageCode', acc.sageCode || '', 'text', { ph: 'e.g. ASC001' });
-  else if (stage === 'Lost') el.innerHTML = fld('Lost reason', 'lostReason', o.lostReason || '', 'text', { span: true, ph: 'Price / incumbent / no budget / no response…' });
-  else if (stage === 'On hold') el.innerHTML = fld('Revisit on', 'holdUntil', o.holdUntil || '', 'date');
+  else if (stage === 'Lost') el.innerHTML = fld('Lost reason', 'lostReason', o.lostReason || '', 'text', { span: true, ph: 'Pick or type a reason', list: 'lostReasons' }) + reasonList('lostReasons', lostReasons());
+  else if (stage === 'On hold') el.innerHTML = fld('Why on hold?', 'holdReason', o.holdReason || '', 'text', { ph: 'Pick or type a reason', list: 'holdReasons' }) + fld('Revisit on', 'holdUntil', o.holdUntil || '', 'date') + reasonList('holdReasons', holdReasons());
   else el.innerHTML = '';
 }
 function saveUpdate(key, id){
@@ -722,7 +1026,7 @@ function saveUpdate(key, id){
   if (f.stage !== o.stage) note = (note ? note + '\n' : '') + 'Stage: ' + o.stage + ' → ' + f.stage;
   rep.activities.push({ id: uid('act'), oppId: o.id, accountId: o.accountId, type: type, note: note, nextAction: f.nextAction, nextActionDue: f.nextActionDue || null, at: at, by: who });
   o.nextAction = f.nextAction; o.nextActionDue = f.nextActionDue || null; o.lastActivityAt = at;
-  if (f.stage !== o.stage) { o.stage = f.stage; if (f.stage === 'Won') { o.wonDate = f.wonDate || today(); if (f.sageCode) { acc.sageCode = f.sageCode.trim().toUpperCase(); stamp(acc); } acc.type = 'Existing customer'; } if (f.stage === 'Lost') o.lostReason = f.lostReason || ''; if (f.stage === 'On hold') { o.holdUntil = f.holdUntil || null; if (f.holdUntil && !o.nextActionDue) { o.nextActionDue = f.holdUntil; o.nextAction = o.nextAction || 'Revisit'; } } }
+  if (f.stage !== o.stage) { logStage(o, o.stage, f.stage); o.stage = f.stage; if (f.stage === 'Won') { o.wonDate = f.wonDate || today(); if (f.sageCode) { acc.sageCode = f.sageCode.trim().toUpperCase(); stamp(acc); } acc.type = 'Existing customer'; } if (f.stage === 'Lost') o.lostReason = f.lostReason || ''; if (f.stage === 'On hold') { o.holdReason = (f.holdReason || '').trim(); o.holdUntil = f.holdUntil || null; if (f.holdUntil && !o.nextActionDue) { o.nextActionDue = f.holdUntil; o.nextAction = o.nextAction || 'Revisit'; } } }
   else if (f.stage === 'Won' && f.sageCode && f.sageCode !== acc.sageCode) { acc.sageCode = f.sageCode.trim().toUpperCase(); stamp(acc); }
   stamp(o);
   save(key, who + ': update ' + acc.name);
@@ -732,13 +1036,14 @@ function saveUpdate(key, id){
 /* edit deal fields */
 function editDeal(key, id){
   var rep = S.data[key], o = rep.opportunities.filter(function(x){ return x.id === id; })[0], acc = accOf(rep, o.accountId);
-  var body = '<div class="grid">' + fld('Title', 'title', o.title, 'text', { span: true }) + fld('1st order value £', 'firstOrderValue', o.firstOrderValue, 'number') + fld('Annual value £', 'annualValue', o.annualValue, 'number') + fld('% chance', 'probability', o.probability, 'select', { options: [0, 10, 15, 25, 50, 70, 80, 90, 100].map(function(p){ return [p, p + '%']; }), blank: '—' }) + fld('Expected start', 'expectedStart', o.expectedStart, 'text', { ph: 'e.g. Oct 2026 / Q2 2027' }) + fld('Stage', 'stage', o.stage, 'select', { options: S.cfg.stages }) + fld('Next action', 'nextAction', o.nextAction, 'text', { span: true }) + fld('Due date', 'nextActionDue', o.nextActionDue, 'date') + fld('Won on', 'wonDate', o.wonDate, 'date') + fld('Lost reason', 'lostReason', o.lostReason, 'text') + fld('Revisit (on hold)', 'holdUntil', o.holdUntil, 'date') + '</div>';
+  var body = '<div class="grid">' + fld('Title', 'title', o.title, 'text', { span: true }) + fld('1st order value £', 'firstOrderValue', o.firstOrderValue, 'number') + fld('Annual value £', 'annualValue', o.annualValue, 'number') + fld('% chance', 'probability', o.probability, 'select', { options: [0, 10, 15, 25, 50, 70, 80, 90, 100].map(function(p){ return [p, p + '%']; }), blank: '—' }) + fld('Expected start', 'expectedStart', o.expectedStart, 'text', { ph: 'e.g. Oct 2026 / Q2 2027' }) + fld('Stage', 'stage', o.stage, 'select', { options: S.cfg.stages }) + fld('Next action', 'nextAction', o.nextAction, 'text', { span: true }) + fld('Due date', 'nextActionDue', o.nextActionDue, 'date') + fld('Won on', 'wonDate', o.wonDate, 'date') + fld('Lost reason', 'lostReason', o.lostReason, 'text', { list: 'lostReasons' }) + fld('Hold reason', 'holdReason', o.holdReason || '', 'text', { list: 'holdReasons' }) + fld('Revisit (on hold)', 'holdUntil', o.holdUntil, 'date') + '</div>' + reasonList('lostReasons', lostReasons()) + reasonList('holdReasons', holdReasons());
   openSheet('Edit · ' + h(acc.name), body, '<button class="btn" onclick="openOpp(\'' + key + '\',\'' + id + '\')">Cancel</button><button class="btn btn-gold" onclick="saveDeal(\'' + key + '\',\'' + id + '\')">Save</button>', { back: 'openOpp(\'' + key + '\',\'' + id + '\')' });
 }
 function saveDeal(key, id){
   var rep = S.data[key], o = rep.opportunities.filter(function(x){ return x.id === id; })[0], f = readForm(), old = o.stage;
-  o.title = f.title.trim() || 'Uniform supply'; o.firstOrderValue = num(f.firstOrderValue); o.annualValue = num(f.annualValue); o.probability = f.probability === '' ? null : +f.probability; o.expectedStart = f.expectedStart.trim(); o.stage = f.stage; o.nextAction = f.nextAction.trim(); o.nextActionDue = f.nextActionDue || null; o.wonDate = f.wonDate || null; o.lostReason = f.lostReason.trim(); o.holdUntil = f.holdUntil || null;
+  o.title = f.title.trim() || 'Uniform supply'; o.firstOrderValue = num(f.firstOrderValue); o.annualValue = num(f.annualValue); o.probability = f.probability === '' ? null : +f.probability; o.expectedStart = f.expectedStart.trim(); o.stage = f.stage; o.nextAction = f.nextAction.trim(); o.nextActionDue = f.nextActionDue || null; o.wonDate = f.wonDate || null; o.lostReason = f.lostReason.trim(); o.holdReason = (f.holdReason || '').trim(); o.holdUntil = f.holdUntil || null;
   if (o.stage === 'Won' && !o.wonDate) o.wonDate = today();
+  if (old !== o.stage) logStage(o, old, o.stage);
   if (old !== o.stage) rep.activities.push({ id: uid('act'), oppId: o.id, accountId: o.accountId, type: 'Note', note: 'Stage: ' + old + ' → ' + o.stage, at: nowISO(), by: S.user.name });
   stamp(o); save(key, S.user.name + ': edit ' + accOf(rep, o.accountId).name); openOpp(key, id); render();
 }
@@ -775,6 +1080,7 @@ function saveContact(key, id, cid){
 }
 function deleteContact(key, id, cid){ if (!confirm('Delete this contact?')) return; var rep = S.data[key]; rep.contacts = rep.contacts.filter(function(x){ return x.id !== cid; }); save(key, S.user.name + ': delete contact'); openOpp(key, id); }
 function deleteOpp(key, id){
+  if (!canEdit('config')) { toast('Mark it Lost or On hold instead — only the admin can delete'); return; }
   var rep = S.data[key], o = rep.opportunities.filter(function(x){ return x.id === id; })[0], acc = accOf(rep, o.accountId);
   if (!confirm('Delete the opportunity for ' + acc.name + '? The company and contacts are kept if other opportunities exist, otherwise removed too.')) return;
   rep.opportunities = rep.opportunities.filter(function(x){ return x.id !== id; });
@@ -800,7 +1106,8 @@ function saveNewOpp(key){
   if (!acc) { acc = stamp({ id: uid('acc'), name: f.name.trim(), location: f.location.trim(), sector: f.sector, type: f.type, staff: num(f.staff), sageCode: f.sageCode.trim().toUpperCase(), website: f.website.trim(), brief: f.brief.trim() }, true); rep.accounts.push(acc); }
   else { ['location', 'sector', 'website', 'brief'].forEach(function(k){ if (f[k] && f[k].trim()) acc[k] = f[k].trim(); }); if (num(f.staff)) acc.staff = num(f.staff); if (f.sageCode.trim()) acc.sageCode = f.sageCode.trim().toUpperCase(); stamp(acc); }
   if (f.cname.trim()) { var c = stamp({ id: uid('con'), accountId: acc.id, name: f.cname.trim(), role: f.crole.trim(), phone: f.cphone.trim(), email: f.cemail.trim(), primary: !contactsOf(rep, acc.id).length }, true); rep.contacts.push(c); }
-  var o = stamp({ id: uid('opp'), accountId: acc.id, title: f.title.trim() || 'Uniform supply', stage: f.stage, probability: +f.probability, firstOrderValue: num(f.firstOrderValue), annualValue: num(f.annualValue), expectedStart: f.expectedStart.trim(), nextAction: f.nextAction.trim(), nextActionDue: f.nextActionDue || null, wonDate: null, lostReason: '', holdUntil: null, lastActivityAt: at }, true);
+  var o = stamp({ id: uid('opp'), accountId: acc.id, title: f.title.trim() || 'Uniform supply', stage: f.stage, probability: +f.probability, firstOrderValue: num(f.firstOrderValue), annualValue: num(f.annualValue), expectedStart: f.expectedStart.trim(), nextAction: f.nextAction.trim(), nextActionDue: f.nextActionDue || null, wonDate: null, lostReason: '', holdReason: '', holdUntil: null, lastActivityAt: at }, true);
+  logStage(o, null, o.stage);
   rep.opportunities.push(o);
   rep.activities.push({ id: uid('act'), oppId: o.id, accountId: acc.id, type: 'Note', note: f.note.trim() || 'Opportunity created', nextAction: o.nextAction, nextActionDue: o.nextActionDue, at: at, by: who });
   save(key, who + ': new opportunity ' + acc.name); openOpp(key, o.id); render();
@@ -868,6 +1175,14 @@ function openSettings(){
       S.cfg.users.map(function(u){ return '<tr><td><b>' + h(u.name) + '</b></td><td>' + h(u.role) + '</td><td class="hideM muted">' + h(accessLabel(u)) + '</td><td style="text-align:right;white-space:nowrap"><button class="btn btn-sm" onclick="openUser(\'' + u.key + '\')">Edit</button> ' + (u.key === S.user.key ? '' : '<button class="btn btn-sm btn-red" onclick="deleteUser(\'' + u.key + '\')">Delete</button>') + '</td></tr>'; }).join('') +
       '</tbody></table><div class="row" style="margin-top:10px"><button class="btn btn-gold" onclick="openUser()">+ Add user</button></div>' +
       '<div class="help" style="margin-top:10px">Reps get their own pipeline file. Managers see everything and edit tenders. Admins can also manage users and PINs. To change stages/sectors, edit <code>' + h(DEFAULTS.CONFIG_PATH) + '</code> in the data repo.</div></div></div>';
+  }
+  if (admin) {
+    var ms = (S.cfg.meetings || []).slice().sort(by('date', 'desc'));
+    body += '<div class="sec"><h3>Board / sales meetings</h3><div class="b"><div class="help" style="margin-bottom:8px">The Sales Board reconciles pipeline movements since the latest meeting date. Add a row after each meeting.</div>' +
+      (ms.length ? '<table class="tbl plain"><tbody>' + ms.map(function(m){ return '<tr><td>' + fmtDate(m.date) + '</td><td>' + h(m.label || '') + '</td><td style="text-align:right"><button class="btn btn-sm btn-red" onclick="removeMeeting(\'' + m.date + '\')">Remove</button></td></tr>'; }).join('') + '</tbody></table>' : '<div class="muted">No meetings recorded yet.</div>') +
+      '<div class="grid" style="margin-top:10px">' + fld('Meeting date', 'mDate', today(), 'date') + fld('Label', 'mLabel', '', 'text', { ph: 'e.g. November sales meeting' }) + '</div><div class="row" style="margin-top:8px"><button class="btn btn-gold" onclick="addMeeting()">Add meeting</button></div></div></div>';
+    body += '<div class="sec"><h3>Sage spend</h3><div class="b help">' + (S.sage ? 'Loaded <b>' + Object.keys(S.sage.customers || {}).length + '</b> customers from <code>' + h(S.cfg.sagePath || DEFAULTS.SAGE_PATH) + '</code>, updated ' + fmtDate(S.sage.updatedAt) + '.' : 'No <code>' + h(S.cfg.sagePath || DEFAULTS.SAGE_PATH) + '</code> in the data repo yet.') +
+      ' To refresh, export net sales by customer from Sage to CSV and run <code>python3 tools/sage_import.py export.csv</code> in the data repo, then commit. Won accounts are matched on their Sage account code.</div></div>';
   }
   body += '<div class="sec"><h3>Setup guide</h3><div class="b help"><ol>' +
     '<li>Create a <b>private</b> GitHub repo for the data (e.g. <code>crm-data</code>) and upload the <code>data/</code> folder (config, lindsay, di, tenders).</li>' +
