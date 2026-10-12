@@ -1110,7 +1110,7 @@ function openSettings(){
       '<div class="grid" style="margin-top:10px">' + fld('Meeting date', 'mDate', today(), 'date') + fld('Label', 'mLabel', '', 'text', { ph: 'e.g. November sales meeting' }) + '</div><div class="row" style="margin-top:8px"><button class="btn btn-gold" onclick="addMeeting()">Add meeting</button></div></div></div>';
     body += '<div class="sec"><h3>Sage spend</h3><div class="b help">' + (S.sage ? 'Loaded <b>' + Object.keys(S.sage.customers || {}).length + '</b> customers from <code>' + h(S.cfg.sagePath || DEFAULTS.SAGE_PATH) + '</code>, updated ' + fmtDate(S.sage.updatedAt) + '.' : 'No <code>' + h(S.cfg.sagePath || DEFAULTS.SAGE_PATH) + '</code> in the data repo yet.') +
       ' Won accounts are matched on their Sage account code.' +
-      '<div style="margin-top:8px"><b>Refresh from Sage:</b> export either invoice lines (columns A/C, Name, Date, Net) or a customer turnover report (columns Code, FY, Spend) to CSV, then upload it here. Credits with a negative net are subtracted and spend is grouped by financial year (starting month ' + (S.cfg.fyStartMonth || 2) + ').</div>' +
+      '<div style="margin-top:8px"><b>Refresh from Sage:</b> export to CSV and upload it here. Any of these layouts work, with column names as Sage 50 or Sage 200 produce them: <b>customer list</b> with Account Number and Turnover This Year / Last Year (quickest), <b>invoice or transaction lines</b> with Account, Date and Net or Goods Value (credits subtracted, grouped by financial year starting month ' + (S.cfg.fyStartMonth || 2) + '), or a sheet of Code, FY, Spend. Excel exports: save as CSV first.</div>' +
       '<div class="grid" style="margin-top:8px">' + fld('How to apply', 'sageMode', 'merge', 'select', { options: [['merge', 'Merge: update the years in the file, keep the rest'], ['replace', 'Replace: start the spend figures again']] }) + '<div class="field"><label>Sage CSV export</label><input type="file" id="sageCsv" accept=".csv,text/csv"></div></div>' +
       '<div class="row" style="margin-top:8px"><button class="btn btn-gold" onclick="importSageCSV()">Upload &amp; save</button></div></div></div>';
   }
@@ -1146,7 +1146,16 @@ function parseCSV(text){
   if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
   return rows.filter(function(r){ return r.some(function(c){ return c.trim() !== ''; }); });
 }
-var SAGE_COLS = { code: ['code', 'ac', 'accountref', 'account', 'accountcode', 'customercode', 'sagecode'], name: ['name', 'customer', 'customername', 'accountname'], date: ['date', 'invoicedate', 'transactiondate'], net: ['net', 'netamount', 'amount', 'total', 'netvalue', 'value'], fy: ['fy', 'financialyear', 'year'], spend: ['spend', 'annualspend', 'turnover'] };
+/* Column names are matched loosely (case, spaces and punctuation ignored) so Sage 50 and Sage 200 exports work as they come. */
+var SAGE_COLS = {
+  code: ['code', 'ac', 'acref', 'accountref', 'accountreference', 'account', 'accountcode', 'accountnumber', 'accountno', 'customercode', 'customeraccount', 'customeraccountnumber', 'customeraccountno', 'custaccountno', 'sagecode'],
+  name: ['name', 'customer', 'customername', 'accountname', 'shortname', 'customershortname'],
+  date: ['date', 'invoicedate', 'transactiondate', 'transdate', 'postingdate', 'posteddate', 'documentdate', 'docdate', 'invdate'],
+  net: ['net', 'nett', 'netamount', 'nettamount', 'netvalue', 'nettvalue', 'goodsvalue', 'goods', 'goodsvaluebase', 'amount', 'total', 'value'],
+  fy: ['fy', 'financialyear', 'year'], spend: ['spend', 'annualspend', 'turnover', 'sales'],
+  thisYear: ['turnoverthisyear', 'thisyear', 'thisyearturnover', 'turnoverytd', 'ytd', 'ytdturnover', 'currentyear', 'turnovercurrentyear', 'salesthisyear', 'turnoveryeartodate', 'yeartodate'],
+  lastYear: ['turnoverlastyear', 'lastyear', 'lastyearturnover', 'prioryear', 'previousyear', 'turnoverprioryear', 'turnoverpreviousyear', 'saleslastyear']
+};
 function sageNum(v){ v = String(v == null ? '' : v).replace(/[£,\s]/g, ''); if (/^\(.*\)$/.test(v)) v = '-' + v.slice(1, -1); var n = parseFloat(v); return isNaN(n) ? 0 : n; }
 function sageDate(v){ v = String(v || '').trim(); var m = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/.exec(v); if (m) { var y = +m[3]; if (y < 100) y += 2000; return y + '-' + pad(+m[2]) + '-' + pad(+m[1]); } if (/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0, 10); var d = new Date(v); return isNaN(d) ? '' : bdYmd(d); }
 function importSageCSV(){
@@ -1155,10 +1164,11 @@ function importSageCSV(){
     var rows = parseCSV(text); if (rows.length < 2) throw new Error('No rows found');
     var head = rows[0].map(function(h){ return h.toLowerCase().replace(/[^a-z0-9]/g, ''); });
     var col = function(k){ for (var i = 0; i < head.length; i++) if (SAGE_COLS[k].indexOf(head[i]) >= 0) return i; return -1; };
-    var ci = { code: col('code'), name: col('name'), date: col('date'), net: col('net'), fy: col('fy'), spend: col('spend') };
-    if (ci.code < 0) throw new Error('No account code column (A/C, Account Ref or Code)');
-    var summarised = ci.fy >= 0 && ci.spend >= 0;
-    if (!summarised && (ci.date < 0 || ci.net < 0)) throw new Error('Need Date and Net columns, or FY and Spend columns');
+    var ci = { code: col('code'), name: col('name'), date: col('date'), net: col('net'), fy: col('fy'), spend: col('spend'), thisYear: col('thisYear'), lastYear: col('lastYear') };
+    if (ci.code < 0) throw new Error('No account code column (A/C, Account Number, Account Ref or Code)');
+    var layout = (ci.fy >= 0 && ci.spend >= 0) ? 'summary' : ci.thisYear >= 0 ? 'turnover' : (ci.date >= 0 && ci.net >= 0) ? 'lines' : '';
+    if (!layout) throw new Error('Need Date + Net columns (invoice lines), Turnover This Year [+ Last Year] (customer list), or FY + Spend');
+    var summarised = layout === 'summary', fyNow = bdFyOf(today()), fyPrev = bdPrevFY(fyNow);
     var sage = (S.sage && f.sageMode !== 'replace') ? S.sage : { updatedAt: nowISO(), source: '', fyStartMonth: S.cfg.fyStartMonth || 2, customers: {} };
     if (f.sageMode === 'replace' && S.sage) Object.keys(S.sage.customers || {}).forEach(function(k){ sage.customers[k] = { name: S.sage.customers[k].name, spend: {} }; });
     var n = 0, bad = 0;
@@ -1167,6 +1177,11 @@ function importSageCSV(){
       var cu = sage.customers[code] = sage.customers[code] || { name: '', spend: {} };
       if (ci.name >= 0 && r[ci.name] && !cu.name) cu.name = r[ci.name].trim();
       var fy, amt;
+      if (layout === 'turnover') {
+        cu.spend[fyNow] = Math.round(sageNum(r[ci.thisYear]) * 100) / 100;
+        if (ci.lastYear >= 0) cu.spend[fyPrev] = Math.round(sageNum(r[ci.lastYear]) * 100) / 100;
+        n++; return;
+      }
       if (summarised) { fy = String(r[ci.fy] || '').trim().replace('-', '/'); amt = sageNum(r[ci.spend]); }
       else { var d = sageDate(r[ci.date]); if (!d) { bad++; return; } fy = bdFyOf(d); amt = sageNum(r[ci.net]); }
       if (!fy) { bad++; return; }
