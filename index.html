@@ -296,7 +296,7 @@ function sha256(ascii){
 var S = {
   mode: 'local', token: '', repo: DEFAULTS.DATA_REPO, branch: DEFAULTS.BRANCH,
   cfg: null, data: {}, sage: null, shas: {}, missing: {},
-  board: { rep: '', period: 'month', basis: 'annual', mv: '', from: '', to: '' },
+  board: { rep: '', period: 'month', basis: 'annual', mv: '', from: '', to: '', showAll: false },
   user: null, tab: 'kpi', view: {}, filters: {}, period: 'month', loading: false, error: ''
 };
 var LS = { get: function(k){ try { return localStorage.getItem('crm.' + k); } catch(e){ return null; } }, set: function(k, v){ try { localStorage.setItem('crm.' + k, v); } catch(e){} }, del: function(k){ try { localStorage.removeItem('crm.' + k); } catch(e){} } };
@@ -726,7 +726,7 @@ function bdSpendLine(acc){
   var ks = Object.keys(sg.spend || {}).sort();
   return ks.length ? ks.map(function(k){ return '<span class="stg">' + h(k) + ' ' + money(sg.spend[k]) + '</span>'; }).join(' ') : '<span class="var na">No spend yet</span>';
 }
-function bdSet(k, v){ S.board[k] = v; if (k === 'period' || k === 'rep') S.board.mv = ''; render(); }
+function bdSet(k, v){ S.board[k] = v; if (k === 'period' || k === 'rep') { S.board.mv = ''; S.board.showAll = false; } render(); }
 /* KPI tiles drill down: filter the movements list, or jump to the matching card. */
 function bdTile(l, v, s, cls, drill){ return '<div class="kpi click ' + (cls || '') + '" onclick="bdDrill(\'' + drill + '\')" title="Show the detail"><div class="l">' + h(l) + '</div><div class="v">' + h(v) + '</div>' + (s ? '<div class="s">' + h(s) + '</div>' : '') + '</div>'; }
 function bdDrill(k){
@@ -839,12 +839,13 @@ function bdMovementsCard(range, repKey){
   if (!shown.length) html += '<div class="empty">' + (S.board.mv ? 'None in this period.' : 'No movements in this period. Tap <b>New leads</b> to list new opportunities.') + '</div>';
   else {
     html += '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Date</th><th>Movement</th>' + (repKey ? '' : '<th class="hm">Rep</th>') + '<th>Company</th><th class="hm">Stage</th><th class="num">Value</th><th class="hm">Reason / note</th></tr></thead><tbody>';
-    shown.slice(0, 300).forEach(function(m){
+    var limit = S.board.showAll ? 1000 : 50;
+    shown.slice(0, limit).forEach(function(m){
       var o = m.x.o, reason = m.kind === 'lost' ? (o.lostReason || '') : m.kind === 'hold' ? ((o.holdReason || '') + (o.holdUntil ? ' · until ' + fmtDate(o.holdUntil) : '')) : m.kind === 'won' ? ((o.annualValue ? 'Promised ' + money(o.annualValue) + '/yr' : '') + (m.x.acc.sageCode ? ' · ' + m.x.acc.sageCode : '')) : (o.nextAction || '');
       html += '<tr onclick="openOpp(\'' + m.x.repKey + '\',\'' + o.id + '\')"><td>' + fmtDate(m.at) + '</td><td><span class="stg" data-s="' + h(m.e.to) + '">' + h(bdKindLabel(m.kind)) + '</span></td>' + (repKey ? '' : '<td class="hm">' + h(bdFirst(m.x.rep)) + '</td>') +
         '<td><div class="cell"><b>' + h(m.x.acc.name) + '</b><small>' + h(o.title || '') + '</small></div></td><td class="hm">' + (m.e.from ? '<span class="stg" data-s="' + h(m.e.from) + '">' + h(m.e.from) + '</span> → ' : '') + '<span class="stg" data-s="' + h(m.e.to) + '">' + h(m.e.to) + '</span></td><td class="num">' + money(m.x.value) + '</td><td class="hm">' + h(reason) + '</td></tr>';
     });
-    html += '</tbody></table></div>' + (shown.length > 300 ? '<div class="muted" style="padding:6px 0">Showing the latest 300 of ' + shown.length + '.</div>' : '');
+    html += '</tbody></table></div>' + (shown.length > limit ? '<div class="row" style="padding:8px 0"><span class="muted">Showing the latest ' + limit + ' of ' + shown.length + '.</span><button class="btn btn-sm" onclick="bdSet(\'showAll\', true)">Show all</button></div>' : (S.board.showAll && shown.length > 50 ? '<div class="row" style="padding:8px 0"><button class="btn btn-sm" onclick="bdSet(\'showAll\', false)">Show fewer</button></div>' : ''));
   }
   return html + '</div></div>';
 }
