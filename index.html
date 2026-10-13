@@ -297,7 +297,7 @@ var S = {
   mode: 'local', token: '', repo: DEFAULTS.DATA_REPO, branch: DEFAULTS.BRANCH,
   cfg: null, data: {}, sage: null, shas: {}, missing: {},
   board: { rep: '', period: 'month', basis: 'annual', mv: '', from: '', to: '', showAll: false },
-  user: null, tab: 'kpi', view: {}, filters: {}, period: 'month', loading: false, error: ''
+  user: null, tab: 'kpi', view: {}, filters: {}, period: 'fy', loading: false, error: ''
 };
 var LS = { get: function(k){ try { return localStorage.getItem('crm.' + k); } catch(e){ return null; } }, set: function(k, v){ try { localStorage.setItem('crm.' + k, v); } catch(e){} }, del: function(k){ try { localStorage.removeItem('crm.' + k); } catch(e){} } };
 var SS = { get: function(k){ try { return sessionStorage.getItem('crm.' + k); } catch(e){ return null; } }, set: function(k, v){ try { sessionStorage.setItem('crm.' + k, v); } catch(e){} }, del: function(k){ try { sessionStorage.removeItem('crm.' + k); } catch(e){} } };
@@ -417,7 +417,7 @@ function tryPin(pin){
   var hsh = sha256(String(pin));
   var u = S.cfg.users.filter(function(x){ return x.pinHash === hsh; })[0];
   if (!u) return false;
-  S.user = u; SS.set('user', u.key); return true;
+  S.user = u; SS.set('user', u.key); setTimeout(sweepStale, 300); return true;
 }
 function restoreUser(){ var k = SS.get('user'); if (k) S.user = userByKey(k) || null; }
 function lockOut(){ S.user = null; SS.del('user'); render(); }
@@ -442,24 +442,29 @@ function periodRange(p){
   else from = new Date(2000, 0, 1);
   return from.toISOString();
 }
+function oppCreated(o){ return ((o.stageHistory && o.stageHistory[0] && o.stageHistory[0].at) || o.createdAt || '').slice(0, 10); }
+function oppLostAt(o){ var ev = (o.stageHistory || []).filter(function(e){ return e.to === 'Lost'; }); return (ev.length ? ev[ev.length - 1].at : (o.updatedAt || '')).slice(0, 10); }
+/* Sage net sales to date for an account (all years). */
+function sageTotalFor(acc){ var code = (acc && acc.sageCode || '').toUpperCase(); var cu = code && S.sage && S.sage.customers ? S.sage.customers[code] : null; var t = 0; if (cu) Object.keys(cu.spend || {}).forEach(function(k){ t += +cu.spend[k] || 0; }); return t; }
 function kpisFor(repKey, period){
-  var rep = S.data[repKey], from = periodRange(period), stale = S.cfg.staleDays || 30;
-  var k = { open: 0, active: 0, hold: 0, weighted: 0, pipeline: 0, won: 0, wonVal: 0, lost: 0, newOpps: 0, acts: 0, calls: 0, meetings: 0, quotes: 0, samples: 0, emails: 0, overdue: 0, stale: 0, dueWeek: 0, winRate: null, wonAll: 0, lostAll: 0 };
+  var rep = S.data[repKey], from = periodRange(period).slice(0, 10), stale = S.cfg.staleDays || 30;
+  var k = { open: 0, active: 0, hold: 0, weighted: 0, pipeline: 0, won: 0, wonVal: 0, wonActual: 0, lost: 0, newOpps: 0, leadsWon: 0, conv: null, acts: 0, calls: 0, meetings: 0, quotes: 0, samples: 0, emails: 0, overdue: 0, stale: 0, dueWeek: 0 };
   var we = weekEnd();
   rep.opportunities.forEach(function(o){
+    var acc = accOf(rep, o.accountId);
     if (isOpen(o)) { k.open++; k.weighted += weighted(o); k.pipeline += (o.annualValue || 0); if (o.stage === 'On hold') k.hold++; else k.active++; }
-    if (o.stage === 'Won') { k.wonAll++; if (!o.imported && (wonDateOf(o, accOf(rep, o.accountId)) || o.updatedAt || '') >= from.slice(0, 10)) { k.won++; k.wonVal += (o.annualValue || o.firstOrderValue || 0); } }
-    if (o.stage === 'Lost') { k.lostAll++; if ((o.updatedAt || '') >= from) k.lost++; }
-    if (!o.imported && (o.createdAt || '') >= from) k.newOpps++;
+    if (o.stage === 'Won' && (wonDateOf(o, acc) || '') >= from) { k.won++; k.wonVal += (o.annualValue || o.firstOrderValue || 0); k.wonActual += sageTotalFor(acc); }
+    if (o.stage === 'Lost' && oppLostAt(o) >= from) k.lost++;
+    if (oppCreated(o) >= from) { k.newOpps++; if (o.stage === 'Won') k.leadsWon++; }
     if (isOpen(o) && o.nextActionDue) { var n = daysUntil(o.nextActionDue); if (n < 0) k.overdue++; if (o.nextActionDue <= we) k.dueWeek++; }
     if (isActive(o)) { var last = o.lastActivityAt || o.updatedAt || o.createdAt; if (last && (Date.now() - new Date(last).getTime()) / 86400000 > stale) k.stale++; }
   });
   rep.activities.forEach(function(a){
-    if ((a.at || '') < from || a.source) return;
+    if ((a.at || '').slice(0, 10) < from || /imported/i.test(a.source || '')) return;
     k.acts++;
     var t = a.type; if (t === 'Call') k.calls++; else if (t === 'Meeting') k.meetings++; else if (t === 'Quote') k.quotes++; else if (t === 'Samples') k.samples++; else if (t === 'Email') k.emails++;
   });
-  if (k.wonAll + k.lostAll) k.winRate = Math.round(100 * k.wonAll / (k.wonAll + k.lostAll));
+  if (k.newOpps) k.conv = Math.round(100 * k.leadsWon / k.newOpps);
   return k;
 }
 
@@ -503,7 +508,7 @@ function render(){
 
 /* ---------- KPI dashboard ---------- */
 function renderKPI(){
-  var p = S.period, pl = { week: 'This week', month: 'This month', quarter: 'Last 3 months', fy: fyLabel(), all: 'All time' };
+  var pl = { week: 'This week', month: 'This month', quarter: 'Last 3 months', fy: fyLabel() }; if (!pl[S.period]) S.period = 'fy'; var p = S.period;
   var html = '<div class="toolbar"><div class="chips">' + Object.keys(pl).map(function(k){ return '<span class="chip ' + (p === k ? 'on' : '') + '" onclick="S.period=\'' + k + '\';render()">' + h(pl[k]) + '</span>'; }).join('') + '</div><div class="spacer" style="flex:1"></div><button class="btn btn-sm" onclick="exportCSV()">Export CSV</button></div>';
 
   html += bdMonthlyKpi();
@@ -514,13 +519,13 @@ function renderKPI(){
     html += '<div class="card"><h2>' + h(u.name) + ' <span class="r">' + h(u.role) + '</span></h2><div class="body"><div class="kgrid">' +
       tile('Active opps', k.active, k.hold ? k.hold + ' on hold' : '') +
       tile('Weighted pipeline', moneyK(k.weighted), 'of ' + moneyK(k.pipeline) + ' annual') +
-      tile('Won · ' + pl[p], k.won, moneyK(k.wonVal) + ' annual', k.won ? 'good' : '') +
-      tile('New opps · ' + pl[p], k.newOpps, '') +
+      tileRaw('Won · ' + pl[p], k.won, '<b style="color:var(--green)">' + money(k.wonActual) + ' actual</b> · est ' + money(k.wonVal) + (k.wonVal ? ' · ' + Math.round(100 * k.wonActual / k.wonVal) + '%' : ''), k.won ? 'good' : '') +
+      tile('New leads · ' + pl[p], k.newOpps, '') +
       tile('Activities · ' + pl[p], k.acts, k.calls + ' calls · ' + k.meetings + ' mtgs · ' + k.emails + ' emails') +
       tile('Quotes / samples', k.quotes + ' / ' + k.samples, pl[p]) +
       tile('Overdue actions', k.overdue, k.dueWeek + ' due this week', k.overdue ? 'warn' : '') +
       tile('Stale (' + (S.cfg.staleDays || 30) + 'd+)', k.stale, 'no activity', k.stale ? 'warn' : '') +
-      tile('Win rate', k.winRate == null ? '—' : k.winRate + '%', k.wonAll + ' won · ' + k.lostAll + ' lost') +
+      tile('Lead conversion · ' + pl[p], k.conv == null ? '—' : k.conv + '%', k.leadsWon + ' of ' + k.newOpps + ' leads won') +
       '</div></div></div>';
   });
   html += '</div>';
@@ -562,6 +567,7 @@ function renderKPI(){
   html += '<div class="card"><h2>Recent activity</h2><div class="body">' + (feed.length ? '<ul class="tl">' + feed.slice(0, 12).map(function(f){ var acc = accOf(f.rep, f.a.accountId); return '<li onclick="openOpp(\'' + f.repKey + '\',\'' + f.a.oppId + '\')" style="cursor:pointer"><div class="ic">' + (ICONS[f.a.type] || '📝') + '</div><div><div class="hd"><b>' + h(acc.name) + '</b> ' + h(f.a.type) + ' · ' + h(f.a.by) + ' · ' + fmtDT(f.a.at) + '</div><div class="nt">' + h((f.a.note || '').slice(0, 160)) + '</div></div></li>'; }).join('') + '</ul>' : '<div class="empty">No activity logged yet</div>') + '</div></div>';
   return html;
 }
+function tileRaw(l, v, sHtml, cls){ return '<div class="kpi ' + (cls || '') + '"><div class="l">' + h(l) + '</div><div class="v">' + h(v) + '</div>' + (sHtml ? '<div class="s">' + sHtml + '</div>' : '') + '</div>'; }
 function tile(l, v, s, cls){ return '<div class="kpi ' + (cls || '') + '"><div class="l">' + h(l) + '</div><div class="v">' + h(v) + '</div>' + (s ? '<div class="s">' + h(s) + '</div>' : '') + '</div>'; }
 function attLi(x){ return '<li onclick="' + x.open + '"><span class="due ' + x.cls + '" style="font-weight:700;white-space:nowrap">' + h(x.t) + '</span><span>' + h(x.s) + '</span><span class="who">' + h(x.who) + '</span></li>'; }
 
@@ -577,6 +583,25 @@ var BD_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 
 function lostReasons(){ return (S.cfg && S.cfg.lostReasons && S.cfg.lostReasons.length) ? S.cfg.lostReasons : BD_LOST_REASONS; }
 function holdReasons(){ return (S.cfg && S.cfg.holdReasons && S.cfg.holdReasons.length) ? S.cfg.holdReasons : BD_HOLD_REASONS; }
 function reasonList(id, arr){ return '<datalist id="' + id + '">' + arr.map(function(r){ return '<option value="' + h(r) + '">'; }).join('') + '</datalist>'; }
+/* Any open opportunity with no update for cfg.autoLoseDays (default 180) is closed as Lost automatically. */
+function sweepStale(){
+  var days = S.cfg.autoLoseDays || 180, cutoff = Date.now() - days * 86400000, total = 0;
+  repUsers().forEach(function(u){
+    if (!canEdit(u.key)) return;
+    var rep = S.data[u.key], n = 0, at = nowISO();
+    (rep.opportunities || []).forEach(function(o){
+      if (!isOpen(o)) return;
+      var last = o.lastActivityAt || o.updatedAt || o.createdAt;
+      if (!last || new Date(last).getTime() > cutoff) return;
+      (o.stageHistory = o.stageHistory || []).push({ at: at, from: o.stage, to: 'Lost', by: 'System' });
+      rep.activities.push({ id: uid('act'), oppId: o.id, accountId: o.accountId, type: 'Note', note: 'Closed automatically: no activity for ' + days + ' days (last update ' + fmtDate(last) + ')', at: at, by: 'System' });
+      o.stage = 'Lost'; o.lostReason = 'No activity for ' + days + ' days'; o.updatedAt = at; o.updatedBy = 'System'; n++;
+    });
+    if (n) { total += n; save(u.key, 'System: closed ' + n + ' inactive opportunit' + (n === 1 ? 'y' : 'ies')); }
+  });
+  if (total) { toast(total + ' inactive opportunit' + (total === 1 ? 'y' : 'ies') + ' closed as Lost (no update for ' + days + ' days)', 5000); render(); }
+  return total;
+}
 function logStage(o, from, to){ (o.stageHistory = o.stageHistory || []).push({ at: nowISO(), from: from || null, to: to, by: S.user ? S.user.name : 'Unknown' }); }
 
 function bdV(x){ var n = +x; return isNaN(n) ? 0 : n; }
@@ -777,27 +802,27 @@ function renderBoard(){
 /* Won by month: rows = months; columns = reps (team) or outcome columns (one rep). */
 function bdMonthlyCard(range, repKey, compact){
   var keys = bdMonthsIn(range.from, range.to), reps = repKey ? [userByKey(repKey)] : repUsers();
-  var wonBy = {}; bdMovements(range.from, range.to, repKey).forEach(function(m){ if (m.kind !== 'won') return; var k = bdMonthKey(m.at); wonBy[k] = wonBy[k] || { n: 0, v: 0 }; wonBy[k].n++; wonBy[k].v += m.x.value; });
+  var wonBy = {}; bdMovements(range.from, range.to, repKey).forEach(function(m){ if (m.kind !== 'won') return; var k = bdMonthKey(m.at); wonBy[k] = wonBy[k] || { n: 0, v: 0, a: 0 }; wonBy[k].n++; wonBy[k].v += m.x.value; wonBy[k].a += sageTotalFor(m.x.acc); });
   var cell = function(c){ return c.n ? '<div class="cell"><b>' + c.n + '</b><small>' + c.won + ' won</small></div>' : '<span style="color:#c4cad4">·</span>'; };
   var html = '<div class="card"><h2>New leads by month <span class="r">' + (compact ? h(range.label) + ' · <span class="lnk" onclick="go(\'board\')">open the Sales Board →</span>' : 'leads created each month' + (repKey ? '' : ' per rep') + ', how many of them have been won, and the business won in the month') + '</span></h2><div style="overflow-x:auto"><table class="tbl plain"><thead><tr><th>Month</th>';
   if (repKey) html += '<th class="num">Leads</th><th class="num">Won</th><th class="num">Lost</th><th class="num">Deferred</th><th class="num">Open</th><th class="num">Conv.</th><th class="num">Won in month</th>';
   else { reps.forEach(function(u){ html += '<th class="num">' + h(bdFirst(u)) + '</th>'; }); html += '<th class="num">Leads</th><th class="num">Won</th><th class="num">Conv.</th><th class="num">Won in month</th>'; }
   html += '</tr></thead><tbody>';
-  var tw = { n: 0, v: 0 };
+  var tw = { n: 0, v: 0, a: 0 };
   keys.slice().reverse().forEach(function(k){
     var from = k + '-01', d = new Date(+k.slice(0, 4), +k.slice(5, 7), 0), to = bdYmd(d);
-    var c = bdCohort(from, to, repKey), w = wonBy[k] || { n: 0, v: 0 }; tw.n += w.n; tw.v += w.v;
+    var c = bdCohort(from, to, repKey), w = wonBy[k] || { n: 0, v: 0, a: 0 }; tw.n += w.n; tw.v += w.v; tw.a += w.a;
     html += '<tr class="' + (c.n || w.n ? '' : 'dim') + '"><td>' + bdMonthLabel(k) + '</td>';
     if (repKey) html += '<td class="num">' + c.n + '</td><td class="num">' + c.won + '</td><td class="num">' + c.lost + '</td><td class="num">' + c.hold + '</td><td class="num">' + c.open + '</td><td class="num">' + bdConv(c) + '</td>';
     else { reps.forEach(function(u){ html += '<td class="num">' + cell(bdCohort(from, to, u.key)) + '</td>'; }); html += '<td class="num"><b>' + c.n + '</b></td><td class="num">' + c.won + '</td><td class="num">' + bdConv(c) + '</td>'; }
-    html += '<td class="num">' + (w.n ? '<div class="cell"><b>' + w.n + '</b><small>' + money(w.v) + '</small></div>' : '<span style="color:#c4cad4">·</span>') + '</td></tr>';
+    html += '<td class="num">' + (w.n ? '<div class="cell"><b>' + w.n + '</b><small>est ' + money(w.v) + '<br><span style="color:var(--green)">' + money(w.a) + ' actual</span></small></div>' : '<span style="color:#c4cad4">·</span>') + '</td></tr>';
   });
   if (keys.length) {
     var first = keys[0] + '-01', ld = new Date(+keys[keys.length - 1].slice(0, 4), +keys[keys.length - 1].slice(5, 7), 0), all = bdCohort(first, bdYmd(ld), repKey);
     html += '<tr class="tot"><td>Total</td>';
     if (repKey) html += '<td class="num">' + all.n + '</td><td class="num">' + all.won + '</td><td class="num">' + all.lost + '</td><td class="num">' + all.hold + '</td><td class="num">' + all.open + '</td><td class="num">' + bdConv(all) + '</td>';
     else { reps.forEach(function(u){ html += '<td class="num">' + cell(bdCohort(first, bdYmd(ld), u.key)) + '</td>'; }); html += '<td class="num"><b>' + all.n + '</b></td><td class="num">' + all.won + '</td><td class="num">' + bdConv(all) + '</td>'; }
-    html += '<td class="num"><div class="cell"><b>' + tw.n + '</b><small>' + money(tw.v) + '</small></div></td></tr>';
+    html += '<td class="num"><div class="cell"><b>' + tw.n + '</b><small>est ' + money(tw.v) + '<br><span style="color:var(--green)">' + money(tw.a) + ' actual</span></small></div></td></tr>';
   }
   return html + '</tbody></table></div></div>';
 }
@@ -933,7 +958,7 @@ function oppCard(key, x, compact){
   var o = x.o, acc = x.acc, c = x.cs[0];
   return '<div class="opp" onclick="openOpp(\'' + key + '\',\'' + o.id + '\')">' +
     '<div class="co">' + h(acc.name) + (acc.sageCode ? ' <code>' + h(acc.sageCode) + '</code>' : '') + '</div>' +
-    '<div class="val">' + (o.annualValue ? money(o.annualValue) : '<span class="muted">TBA</span>') + '<small>' + (o.probability != null ? o.probability + '% · ' + moneyK(weighted(o)) : '') + '</small></div>' +
+    '<div class="val">' + (o.stage === 'Won' ? '<span style="color:var(--green)">' + money(sageTotalFor(acc)) + '</span><small>actual · est ' + (o.annualValue ? moneyK(o.annualValue) : 'TBA') + '</small>' : (o.annualValue ? money(o.annualValue) : '<span class="muted">TBA</span>') + '<small>' + (o.probability != null ? o.probability + '% · ' + moneyK(weighted(o)) : '') + '</small>') + '</div>' +
     '<div class="meta"><span class="stg" data-s="' + h(o.stage) + '">' + h(o.stage) + '</span>' + (compact ? '' : '<span>' + h(acc.location || '') + '</span><span>' + h(acc.sector || '') + '</span>' + (c ? '<span>👤 ' + h(c.name) + '</span>' : '')) + '<span>' + rel(o.lastActivityAt || o.updatedAt) + '</span></div>' +
     (o.nextAction || o.nextActionDue ? '<div class="next"><span class="due ' + dueClass(o.nextActionDue) + '">' + (o.nextActionDue ? fmtDate(o.nextActionDue) + ' · ' + dueLabel(o.nextActionDue) : '') + '</span><span>' + h(o.nextAction || '') + '</span></div>' : '') +
     '</div>';
@@ -1001,7 +1026,7 @@ function openOpp(key, id){
   // deal
   body += '<div class="sec"><h3>Opportunity' + (ed ? '<span class="r"><button class="btn btn-sm" onclick="editDeal(\'' + key + '\',\'' + id + '\')">Edit</button></span>' : '') + '</h3><div class="b"><div class="kv">' +
     kv('Title', o.title) + kv('1st order value', money(o.firstOrderValue)) + kv('Annual value', money(o.annualValue)) + kv('% chance', o.probability != null ? o.probability + '%' : '—') + kv('Weighted', money(weighted(o))) + kv('Expected start', o.expectedStart || '—') +
-    (o.stage === 'Won' ? kv('Won on', fmtDate(wonDateOf(o, acc)) + (sageOpenedFor(acc) && !o.wonDateManual ? ' <span class="muted">(Sage account opened)</span>' : ''), true) : '') + (o.stage === 'Lost' ? kv('Lost reason', o.lostReason || '—') : '') + (o.stage === 'On hold' ? kv('Revisit', fmtDate(o.holdUntil || o.nextActionDue)) + kv('Hold reason', o.holdReason || '—') : '') + (o.stage === 'Won' ? kv('Sage spend', bdSpendLine(acc), true) : '') +
+    (o.stage === 'Won' ? kv('Won on', fmtDate(wonDateOf(o, acc)) + (sageOpenedFor(acc) && !o.wonDateManual ? ' <span class="muted">(Sage account opened)</span>' : ''), true) : '') + (o.stage === 'Lost' ? kv('Lost reason', o.lostReason || '—') : '') + (o.stage === 'On hold' ? kv('Revisit', fmtDate(o.holdUntil || o.nextActionDue)) + kv('Hold reason', o.holdReason || '—') : '') + (o.stage === 'Won' ? kv('Estimate vs actual', (o.annualValue ? money(o.annualValue) + '/yr estimated · ' : 'no estimate · ') + '<b>' + money(sageTotalFor(acc)) + ' invoiced to date</b>' + (o.annualValue ? ' (' + Math.round(100 * sageTotalFor(acc) / o.annualValue) + '%)' : ''), true) + kv('Sage spend', bdSpendLine(acc), true) : '') +
     '<div class="wide"><b>Next action</b><span><span class="due ' + dueClass(o.nextActionDue) + '" style="font-weight:700">' + (o.nextActionDue ? fmtDate(o.nextActionDue) + ' (' + dueLabel(o.nextActionDue) + ')' : 'no date') + '</span> — ' + h(o.nextAction || '—') + '</span></div>' +
     '</div></div></div>';
   // company
@@ -1052,6 +1077,11 @@ function saveUpdate(key, id){
   var rep = S.data[key], o = rep.opportunities.filter(function(x){ return x.id === id; })[0], acc = accOf(rep, o.accountId);
   var f = readForm(), chip = $('atype').querySelector('.chip.on'), type = chip ? chip.getAttribute('data-t') : 'Note';
   if (!f.note.trim() && f.stage === o.stage && f.nextAction === (o.nextAction || '') && f.nextActionDue === (o.nextActionDue || '')) { alert('Add a note or change something first.'); return; }
+  if (f.stage === 'Won' && f.stage !== o.stage) {
+    var sc = (f.sageCode || acc.sageCode || '').trim().toUpperCase();
+    if (!sc) { alert('Enter the Sage account number before marking this as Won. Set the account up in Sage first if it does not exist yet.'); return; }
+    if (S.sage && S.sage.customers && !S.sage.customers[sc] && !confirm('Sage account ' + sc + ' is not in the Sage spend file yet (it may be newer than the last upload). Mark as Won anyway?')) return;
+  }
   var who = S.user.name, at = nowISO(), note = f.note.trim();
   if (f.stage !== o.stage) note = (note ? note + '\n' : '') + 'Stage: ' + o.stage + ' → ' + f.stage;
   rep.activities.push({ id: uid('act'), oppId: o.id, accountId: o.accountId, type: type, note: note, nextAction: f.nextAction, nextActionDue: f.nextActionDue || null, at: at, by: who });
@@ -1071,6 +1101,7 @@ function editDeal(key, id){
 }
 function saveDeal(key, id){
   var rep = S.data[key], o = rep.opportunities.filter(function(x){ return x.id === id; })[0], f = readForm(), old = o.stage;
+  if (f.stage === 'Won' && old !== 'Won' && !(accOf(rep, o.accountId).sageCode || '').trim()) { alert('Enter the Sage account number on the company (Edit company) before marking this as Won, or use + Add update which asks for it.'); return; }
   o.title = f.title.trim() || 'Uniform supply'; o.firstOrderValue = num(f.firstOrderValue); o.annualValue = num(f.annualValue); o.probability = f.probability === '' ? null : +f.probability; o.expectedStart = f.expectedStart.trim(); o.stage = f.stage; o.nextAction = f.nextAction.trim(); o.nextActionDue = f.nextActionDue || null; o.wonDate = f.wonDate || null; o.lostReason = f.lostReason.trim(); o.holdReason = (f.holdReason || '').trim(); o.holdUntil = f.holdUntil || null;
   if (o.stage === 'Won') { var so = sageOpenedFor(accOf(rep, o.accountId)); if (!o.wonDate) o.wonDate = so || today(); o.wonDateManual = !!(so && o.wonDate !== so); }
   if (old !== o.stage) logStage(o, old, o.stage);
@@ -1347,7 +1378,7 @@ function boot(){
   $('refreshBtn').onclick = function(){ S.data = {}; loadAll().then(render); };
   $('settingsBtn').onclick = openSettingsGuarded;
   render();
-  loadAll().then(function(){ restoreUser(); if (S.user && !userByKey(S.user.key)) S.user = null; render(); });
+  loadAll().then(function(){ restoreUser(); if (S.user && !userByKey(S.user.key)) S.user = null; render(); if (S.user) sweepStale(); });
   setInterval(function(){ if (S.mode === 'github' && !document.hidden && !$('ovRoot').innerHTML) { S.data = {}; loadAll().then(render); } }, DEFAULTS.REFRESH_MS);
   document.addEventListener('visibilitychange', function(){ if (!document.hidden && S.mode === 'github' && !$('ovRoot').innerHTML) { S.data = {}; loadAll().then(render); } });
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeSheet(); });
