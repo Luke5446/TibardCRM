@@ -1166,7 +1166,7 @@ function openSettings(){
     body += '<div class="sec"><h3>Sage spend</h3><div class="b help">' + (S.sage ? 'Loaded <b>' + Object.keys(S.sage.customers || {}).length + '</b> customers from <code>' + h(S.cfg.sagePath || DEFAULTS.SAGE_PATH) + '</code>, updated ' + fmtDate(S.sage.updatedAt) + '.' : 'No <code>' + h(S.cfg.sagePath || DEFAULTS.SAGE_PATH) + '</code> in the data repo yet.') +
       ' Won accounts are matched on their Sage account code; an Opened column sets the won date.' +
       '<div style="margin-top:8px"><b>Refresh from Sage:</b> export to CSV and upload it here. Any of these layouts work, with column names as Sage 50 or Sage 200 produce them: <b>customer list</b> with Account Number and Turnover This Year / Last Year (quickest), <b>invoice or transaction lines</b> such as the Sales Day Book or a transaction listing, with Account, Date, Type and Net or Goods Value (invoices count, credit notes are subtracted, receipts are ignored, grouped by financial year starting month ' + (S.cfg.fyStartMonth || 2) + '), or a sheet of Code, FY, Spend. Excel exports: save as CSV first.</div>' +
-      '<div class="grid" style="margin-top:8px">' + fld('How to apply', 'sageMode', 'merge', 'select', { options: [['merge', 'Merge: update the years in the file, keep the rest'], ['replace', 'Replace: start the spend figures again']] }) + '<div class="field"><label>Sage CSV export</label><input type="file" id="sageCsv" accept=".csv,text/csv"></div></div>' +
+      '<div class="grid" style="margin-top:8px">' + fld('How to apply', 'sageMode', 'merge', 'select', { options: [['merge', 'Merge: years in the file replace the stored figures, other years are kept'], ['replace', 'Replace: start the spend figures again']] }) + '<div class="field"><label>Sage CSV export</label><input type="file" id="sageCsv" accept=".csv,text/csv"></div></div>' +
       '<div class="row" style="margin-top:8px"><button class="btn btn-gold" onclick="importSageCSV()">Upload &amp; save</button></div></div></div>';
   }
   body += '<div class="sec"><h3>Setup guide</h3><div class="b help"><ol>' +
@@ -1229,7 +1229,8 @@ function sageDate(v){
 function sageDateOk(d){ var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d); return !!m && +m[2] >= 1 && +m[2] <= 12 && +m[3] >= 1 && +m[3] <= 31; }
 function importSageCSV(){
   var inp = $('sageCsv'), f = readForm(); if (!inp || !inp.files.length) { alert('Choose the CSV export first'); return; }
-  inp.files[0].text().then(function(text){
+  inp.files[0].arrayBuffer().then(function(buf){
+    var text; try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch (e) { text = new TextDecoder('windows-1252').decode(buf); }
     var rows = parseCSV(text); if (rows.length < 2) throw new Error('No rows found');
     var head = rows[0].map(function(h){ return h.toLowerCase().replace(/[^a-z0-9]/g, ''); });
     var col = function(k){ for (var i = 0; i < head.length; i++) if (SAGE_COLS[k].indexOf(head[i]) >= 0) return i; return -1; };
@@ -1240,7 +1241,7 @@ function importSageCSV(){
     var summarised = layout === 'summary', fyNow = bdFyOf(today()), fyPrev = bdPrevFY(fyNow);
     var sage = (S.sage && f.sageMode !== 'replace') ? S.sage : { updatedAt: nowISO(), source: '', fyStartMonth: S.cfg.fyStartMonth || 2, customers: {} };
     if (f.sageMode === 'replace' && S.sage) Object.keys(S.sage.customers || {}).forEach(function(k){ sage.customers[k] = { name: S.sage.customers[k].name, spend: {} }; });
-    var n = 0, bad = 0, opened = 0, badOpened = [];
+    var n = 0, bad = 0, opened = 0, badOpened = [], touched = {};
     rows.slice(1).forEach(function(r){
       var code = (r[ci.code] || '').trim().toUpperCase(); if (!code) return;
       var cu = sage.customers[code] = sage.customers[code] || { name: '', spend: {} };
@@ -1252,10 +1253,11 @@ function importSageCSV(){
         if (ci.lastYear >= 0) cu.spend[fyPrev] = Math.round(sageNum(r[ci.lastYear]) * 100) / 100;
         n++; return;
       }
-      if (summarised) { fy = String(r[ci.fy] || '').trim().replace('-', '/'); amt = sageNum(r[ci.spend]); }
+      if (summarised) { fy = String(r[ci.fy] || '').trim().replace('-', '/'); if (!fy && !String(r[ci.spend] || '').trim()) return; amt = sageNum(r[ci.spend]); }
       else { var d = sageDate(r[ci.date]); if (!d || !sageDateOk(d)) { bad++; return; } fy = bdFyOf(d); amt = sageNum(r[ci.net]); if (ci.type >= 0) { var sg = sageSign(r[ci.type]); if (!sg) return; amt = Math.abs(amt) * sg; } }
       if (!fy) { bad++; return; }
-      cu.spend[fy] = Math.round(((cu.spend[fy] || 0) + amt) * 100) / 100; n++;
+      if (!touched[code + '|' + fy]) { touched[code + '|' + fy] = 1; cu.spend[fy] = 0; }  /* a year present in the file replaces the stored value, rows within the file add up */
+      cu.spend[fy] = Math.round((cu.spend[fy] + amt) * 100) / 100; n++;
     });
     sage.source = inp.files[0].name; sage.fyStartMonth = S.cfg.fyStartMonth || 2;
     S.sage = sage;
