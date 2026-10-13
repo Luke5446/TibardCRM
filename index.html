@@ -728,7 +728,9 @@ function bdSpendLine(acc){
 }
 function bdSet(k, v){ S.board[k] = v; if (k === 'period' || k === 'rep') { S.board.mv = ''; S.board.showAll = false; } render(); }
 /* KPI tiles drill down: filter the movements list, or jump to the matching card. */
-function bdTile(l, v, s, cls, drill){ return '<div class="kpi click ' + (cls || '') + '" onclick="bdDrill(\'' + drill + '\')" title="Show the detail"><div class="l">' + h(l) + '</div><div class="v">' + h(v) + '</div>' + (s ? '<div class="s">' + h(s) + '</div>' : '') + '</div>'; }
+function bdTile(l, v, s, cls, drill, rawSub){ return '<div class="kpi click ' + (cls || '') + '" onclick="bdDrill(\'' + drill + '\')" title="Show the detail"><div class="l">' + h(l) + '</div><div class="v">' + h(v) + '</div>' + (s ? '<div class="s">' + (rawSub ? s : h(s)) + '</div>' : '') + '</div>'; }
+/* Sage spend to date for the accounts won in the window. */
+function bdWonActual(from, to, repKey){ var t = 0, seen = {}; bdMovements(from, to, repKey).forEach(function(m){ if (m.kind !== 'won') return; var code = (m.x.acc.sageCode || '').toUpperCase(); if (!code || seen[code]) return; seen[code] = 1; var cu = S.sage && S.sage.customers && S.sage.customers[code]; if (cu) Object.keys(cu.spend || {}).forEach(function(k){ t += bdV(cu.spend[k]); }); }); return t; }
 function bdDrill(k){
   var target = 'bdMoves';
   if (k === 'won' || k === 'lost' || k === 'hold' || k === 'new') S.board.mv = k;
@@ -759,7 +761,7 @@ function renderBoard(){
   html += '<div class="card"><h2>' + h(who) + ' · ' + h(range.label) + ' <span class="r">lead conversion = leads created in the period that have since been won ÷ leads created</span></h2><div class="body"><div class="kgrid">' +
     bdTile('New leads', co.n, money(co.v), '', 'new') +
     bdTile('Lead conversion', bdConv(co), co.won + ' of ' + co.n + ' won · ' + co.lost + ' lost · ' + (co.open + co.hold) + ' open', co.won ? 'good' : '', 'conv') +
-    bdTile('Won', oc.won.n, money(oc.won.v), 'good', 'won') + bdTile('Lost', oc.lost.n, money(oc.lost.v), 'warn', 'lost') + bdTile('Deferred', oc.hold.n, money(oc.hold.v), 'hold', 'hold') +
+    bdTile('Won', oc.won.n, '<b style="color:var(--green);font-size:14px">' + money(bdWonActual(range.from, range.to, repKey)) + ' actual</b><br>estimate ' + money(oc.won.v) + ' · ' + bdPct(bdWonActual(range.from, range.to, repKey), oc.won.v), 'good', 'won', true) + bdTile('Lost', oc.lost.n, money(oc.lost.v), 'warn', 'lost') + bdTile('Deferred', oc.hold.n, money(oc.hold.v), 'hold', 'hold') +
     bdTile('Open pipeline', open.length, money(openV) + ' · ' + held.length + ' on hold', '', 'open') +
     bdTile('Sage vs promised', withSage ? bdPct(actual, promised) : '—', withSage ? money(actual) + ' of ' + money(promised) + ' · ' + withSage + ' accounts' : 'no Sage spend loaded', '', 'sage') +
     '</div></div></div>';
