@@ -517,15 +517,15 @@ function renderKPI(){
   reps.forEach(function(u){
     var k = kpisFor(u.key, p);
     html += '<div class="card"><h2>' + h(u.name) + ' <span class="r">' + h(u.role) + '</span></h2><div class="body"><div class="kgrid">' +
-      tile('Active opps', k.active, k.hold ? k.hold + ' on hold' : '') +
-      tile('Weighted pipeline', moneyK(k.weighted), 'of ' + moneyK(k.pipeline) + ' annual') +
-      tileRaw('Won · ' + pl[p], k.won, '<b style="color:var(--green)">' + money(k.wonActual) + ' actual</b> · est ' + money(k.wonVal) + (k.wonVal ? ' · ' + Math.round(100 * k.wonActual / k.wonVal) + '%' : ''), k.won ? 'good' : '') +
-      tile('New leads · ' + pl[p], k.newOpps, '') +
-      tile('Activities · ' + pl[p], k.acts, k.calls + ' calls · ' + k.meetings + ' mtgs · ' + k.emails + ' emails') +
-      tile('Quotes / samples', k.quotes + ' / ' + k.samples, pl[p]) +
-      tile('Overdue actions', k.overdue, k.dueWeek + ' due this week', k.overdue ? 'warn' : '') +
-      tile('Stale (' + (S.cfg.staleDays || 30) + 'd+)', k.stale, 'no activity', k.stale ? 'warn' : '') +
-      tile('Lead conversion · ' + pl[p], k.conv == null ? '—' : k.conv + '%', k.leadsWon + ' of ' + k.newOpps + ' leads won') +
+      kTile(u.key, 'active', 'Active opps', k.active, k.hold ? k.hold + ' on hold' : '') +
+      kTile(u.key, 'weighted', 'Weighted pipeline', moneyK(k.weighted), 'of ' + moneyK(k.pipeline) + ' annual') +
+      kTile(u.key, 'won', 'Won · ' + pl[p], k.won, '<b style="color:var(--green)">' + money(k.wonActual) + ' actual</b> · est ' + money(k.wonVal) + (k.wonVal ? ' · ' + Math.round(100 * k.wonActual / k.wonVal) + '%' : ''), k.won ? 'good' : '', true) +
+      kTile(u.key, 'new', 'New leads · ' + pl[p], k.newOpps, '') +
+      kTile(u.key, 'acts', 'Activities · ' + pl[p], k.acts, k.calls + ' calls · ' + k.meetings + ' mtgs · ' + k.emails + ' emails') +
+      kTile(u.key, 'quotes', 'Quotes / samples', k.quotes + ' / ' + k.samples, pl[p]) +
+      kTile(u.key, 'overdue', 'Overdue actions', k.overdue, k.dueWeek + ' due this week', k.overdue ? 'warn' : '') +
+      kTile(u.key, 'stale', 'Stale (' + (S.cfg.staleDays || 30) + 'd+)', k.stale, 'no activity', k.stale ? 'warn' : '') +
+      kTile(u.key, 'conv', 'Lead conversion · ' + pl[p], k.conv == null ? '—' : k.conv + '%', k.leadsWon + ' of ' + k.newOpps + ' leads won') +
       '</div></div></div>';
   });
   html += '</div>';
@@ -566,6 +566,51 @@ function renderKPI(){
   feed.sort(function(a, b){ return (b.a.at || '').localeCompare(a.a.at || ''); });
   html += '<div class="card"><h2>Recent activity</h2><div class="body">' + (feed.length ? '<ul class="tl">' + feed.slice(0, 12).map(function(f){ var acc = accOf(f.rep, f.a.accountId); return '<li onclick="openOpp(\'' + f.repKey + '\',\'' + f.a.oppId + '\')" style="cursor:pointer"><div class="ic">' + (ICONS[f.a.type] || '📝') + '</div><div><div class="hd"><b>' + h(acc.name) + '</b> ' + h(f.a.type) + ' · ' + h(f.a.by) + ' · ' + fmtDT(f.a.at) + '</div><div class="nt">' + h((f.a.note || '').slice(0, 160)) + '</div></div></li>'; }).join('') + '</ul>' : '<div class="empty">No activity logged yet</div>') + '</div></div>';
   return html;
+}
+function kTile(key, what, l, v, s, cls, raw){ return '<div class="kpi click ' + (cls || '') + '" onclick="kpiDrill(\'' + key + '\',\'' + what + '\')" title="Show the detail"><div class="l">' + h(l) + '</div><div class="v">' + h(v) + '</div>' + (s ? '<div class="s">' + (raw ? s : h(s)) + '</div>' : '') + '</div>'; }
+/* KPI tile drill-down: lists the opportunities / activities behind a tile */
+function kpiDrill(key, what){
+  var rep = S.data[key], u = userByKey(key), p = S.period, from = periodRange(p).slice(0, 10), stale = S.cfg.staleDays || 30, we = weekEnd();
+  var pl = { week: 'this week', month: 'this month', quarter: 'last 3 months', fy: fyLabel() }[p] || '';
+  var rows = rep.opportunities.map(function(o){ return { o: o, acc: accOf(rep, o.accountId) }; });
+  var last = function(o){ return o.lastActivityAt || o.updatedAt || o.createdAt; };
+  var link = function(x){ return 'onclick="openOpp(\'' + key + '\',\'' + x.o.id + '\')"'; };
+  var co = function(x){ return '<td><div class="cell"><b>' + h(x.acc.name) + '</b><small>' + h(x.o.title || '') + (x.acc.sageCode ? ' · ' + h(x.acc.sageCode) : '') + '</small></div></td>'; };
+  var stg = function(o){ return '<span class="stg" data-s="' + h(o.stage) + '">' + h(o.stage) + '</span>'; };
+  var tbl = function(head, body){ return body ? '<div style="overflow-x:auto"><table class="tbl"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>' : '<div class="empty">Nothing to show.</div>'; };
+  var title = '', note = '', html = '', list, tot;
+  if (what === 'active' || what === 'weighted') {
+    list = rows.filter(function(x){ return isOpen(x.o); }).sort(function(a, b){ return weighted(b.o) - weighted(a.o); });
+    tot = { v: 0, w: 0 }; list.forEach(function(x){ tot.v += x.o.annualValue || 0; tot.w += weighted(x.o); });
+    title = what === 'active' ? 'Active opportunities' : 'Weighted pipeline';
+    note = 'Weighted = annual value × % chance, summed over every open opportunity (on hold included). ' + money(tot.v) + ' annual × chance = <b>' + money(tot.w) + '</b> weighted across ' + list.length + ' opportunities.';
+    html = tbl('<th>Company</th><th>Stage</th><th class="num">Annual</th><th class="num">% chance</th><th class="num">Weighted</th><th class="hm">Next action</th>', list.map(function(x){ var o = x.o; return '<tr ' + link(x) + '>' + co(x) + '<td>' + stg(o) + '</td><td class="num">' + (o.annualValue ? money(o.annualValue) : '<span class="muted">TBA</span>') + '</td><td class="num">' + (o.probability != null ? o.probability + '%' : '—') + '</td><td class="num">' + money(weighted(o)) + '</td><td class="hm">' + h(o.nextAction || '') + (o.nextActionDue ? ' <small class="muted">' + fmtDate(o.nextActionDue) + '</small>' : '') + '</td></tr>'; }).join(''));
+  } else if (what === 'won') {
+    list = rows.filter(function(x){ return x.o.stage === 'Won' && (wonDateOf(x.o, x.acc) || '') >= from; }).sort(function(a, b){ return (wonDateOf(b.o, b.acc) || '') < (wonDateOf(a.o, a.acc) || '') ? -1 : 1; });
+    tot = { e: 0, a: 0 }; list.forEach(function(x){ tot.e += x.o.annualValue || x.o.firstOrderValue || 0; tot.a += sageTotalFor(x.acc); });
+    title = 'Won · ' + pl; note = list.length + ' won · promised ' + money(tot.e) + '/yr · <b style="color:var(--green)">' + money(tot.a) + ' actual</b> in Sage to date' + (tot.e ? ' (' + Math.round(100 * tot.a / tot.e) + '%)' : '') + '.';
+    html = tbl('<th>Won on</th><th>Company</th><th class="num">Promised / yr</th><th class="num">Actual (Sage)</th><th class="num">%</th>', list.map(function(x){ var o = x.o, e = o.annualValue || o.firstOrderValue || 0, a = sageTotalFor(x.acc); return '<tr ' + link(x) + '><td>' + fmtDate(wonDateOf(o, x.acc)) + '</td>' + co(x) + '<td class="num">' + (e ? money(e) : '<span class="muted">No promise</span>') + '</td><td class="num">' + (x.acc.sageCode ? (a ? '<b style="color:var(--green)">' + money(a) + '</b>' : '<span class="muted">no spend yet</span>') : '<span class="muted">No Sage code</span>') + '</td><td class="num">' + (e && a ? Math.round(100 * a / e) + '%' : '—') + '</td></tr>'; }).join(''));
+  } else if (what === 'new' || what === 'conv') {
+    list = rows.filter(function(x){ return oppCreated(x.o) >= from; }).sort(function(a, b){ return oppCreated(b.o) < oppCreated(a.o) ? -1 : 1; });
+    var w = list.filter(function(x){ return x.o.stage === 'Won'; }).length, l = list.filter(function(x){ return x.o.stage === 'Lost'; }).length;
+    title = (what === 'new' ? 'New leads · ' : 'Lead conversion · ') + pl;
+    note = list.length + ' leads created ' + pl + ': <b>' + w + ' won</b> (' + (list.length ? Math.round(100 * w / list.length) : 0) + '%), ' + l + ' lost, ' + (list.length - w - l) + ' still open.';
+    html = tbl('<th>Created</th><th>Company</th><th>Now</th><th class="num">Annual</th><th class="hm">Next action</th>', list.map(function(x){ var o = x.o; return '<tr ' + link(x) + '><td>' + fmtDate(oppCreated(o)) + '</td>' + co(x) + '<td>' + stg(o) + '</td><td class="num">' + (o.annualValue ? money(o.annualValue) : '<span class="muted">TBA</span>') + '</td><td class="hm">' + h(o.stage === 'Lost' ? (o.lostReason || '') : (o.nextAction || '')) + '</td></tr>'; }).join(''));
+  } else if (what === 'acts' || what === 'quotes') {
+    list = rep.activities.filter(function(a){ return (a.at || '').slice(0, 10) >= from && !/imported/i.test(a.source || '') && (what === 'acts' || a.type === 'Quote' || a.type === 'Samples'); }).sort(function(a, b){ return a.at < b.at ? 1 : -1; });
+    title = (what === 'acts' ? 'Activities · ' : 'Quotes and samples · ') + pl; note = list.length + ' logged ' + pl + '.';
+    html = tbl('<th>Date</th><th>Type</th><th>Company</th><th class="hm">Note</th>', list.map(function(a){ var acc = accOf(rep, a.accountId); return '<tr onclick="openOpp(\'' + key + '\',\'' + a.oppId + '\')"><td>' + fmtDate(a.at) + '</td><td>' + (ICONS[a.type] || '') + ' ' + h(a.type) + '</td><td><b>' + h(acc.name) + '</b></td><td class="hm">' + h((a.note || '').slice(0, 120)) + '</td></tr>'; }).join(''));
+  } else if (what === 'overdue') {
+    list = rows.filter(function(x){ return isOpen(x.o) && x.o.nextActionDue && x.o.nextActionDue <= we; }).sort(function(a, b){ return a.o.nextActionDue < b.o.nextActionDue ? -1 : 1; });
+    var od = list.filter(function(x){ return daysUntil(x.o.nextActionDue) < 0; }).length;
+    title = 'Overdue and due this week'; note = '<b>' + od + ' overdue</b>, ' + (list.length - od) + ' due by ' + fmtDate(we) + '.';
+    html = tbl('<th>Due</th><th>Company</th><th>Stage</th><th class="hm">Next action</th>', list.map(function(x){ var o = x.o, n = daysUntil(o.nextActionDue); return '<tr ' + link(x) + '><td class="' + (n < 0 ? 'bad' : '') + '" style="' + (n < 0 ? 'color:var(--red);font-weight:700' : '') + '">' + fmtDate(o.nextActionDue) + (n < 0 ? ' <small>' + (-n) + 'd late</small>' : '') + '</td>' + co(x) + '<td>' + stg(o) + '</td><td class="hm">' + h(o.nextAction || '') + '</td></tr>'; }).join(''));
+  } else if (what === 'stale') {
+    list = rows.filter(function(x){ var t = last(x.o); return isActive(x.o) && t && (Date.now() - new Date(t).getTime()) / 86400000 > stale; }).sort(function(a, b){ return (last(a.o) || '') < (last(b.o) || '') ? -1 : 1; });
+    title = 'Stale · no activity for ' + stale + '+ days'; note = list.length + ' active opportunities with nothing logged for ' + stale + ' days. Anything untouched for ' + (S.cfg.autoLoseDays || 180) + ' days is closed as Lost automatically.';
+    html = tbl('<th>Last update</th><th>Company</th><th>Stage</th><th class="num">Annual</th><th class="hm">Next action</th>', list.map(function(x){ var o = x.o; return '<tr ' + link(x) + '><td>' + fmtDate(last(o)) + ' <small class="muted">' + rel(last(o)) + '</small></td>' + co(x) + '<td>' + stg(o) + '</td><td class="num">' + (o.annualValue ? money(o.annualValue) : '—') + '</td><td class="hm">' + h(o.nextAction || '') + '</td></tr>'; }).join(''));
+  }
+  openSheet(h(bdFirst(u)) + ' · ' + h(title), (note ? '<p class="muted" style="margin:0 0 10px">' + note + '</p>' : '') + html + '<p class="muted" style="margin:10px 0 0;font-size:12px">Tap a row to open the opportunity.</p>');
 }
 function tileRaw(l, v, sHtml, cls){ return '<div class="kpi ' + (cls || '') + '"><div class="l">' + h(l) + '</div><div class="v">' + h(v) + '</div>' + (sHtml ? '<div class="s">' + sHtml + '</div>' : '') + '</div>'; }
 function tile(l, v, s, cls){ return '<div class="kpi ' + (cls || '') + '"><div class="l">' + h(l) + '</div><div class="v">' + h(v) + '</div>' + (s ? '<div class="s">' + h(s) + '</div>' : '') + '</div>'; }
@@ -865,12 +910,13 @@ function bdMovementsCard(range, repKey){
   var shown = S.board.mv ? mv.filter(function(m){ return m.kind === S.board.mv; }) : mv.filter(function(m){ return m.kind !== 'new'; });
   if (!shown.length) html += '<div class="empty">' + (S.board.mv ? 'None in this period.' : 'No movements in this period. Tap <b>New leads</b> to list new opportunities.') + '</div>';
   else {
-    html += '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Date</th><th>Movement</th>' + (repKey ? '' : '<th class="hm">Rep</th>') + '<th>Company</th><th class="hm">Stage</th><th class="num">Value</th><th class="hm">Reason / note</th></tr></thead><tbody>';
+    html += '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Date</th><th>Movement</th>' + (repKey ? '' : '<th class="hm">Rep</th>') + '<th>Company</th><th class="hm">Stage</th><th class="num">' + (S.board.basis === 'first' ? 'First order' : 'Promised / yr') + '</th><th class="num">Actual (Sage)</th><th class="hm">Reason / note</th></tr></thead><tbody>';
     var limit = S.board.showAll ? 1000 : 50;
     shown.slice(0, limit).forEach(function(m){
-      var o = m.x.o, reason = m.kind === 'lost' ? (o.lostReason || '') : m.kind === 'hold' ? ((o.holdReason || '') + (o.holdUntil ? ' · until ' + fmtDate(o.holdUntil) : '')) : m.kind === 'won' ? [o.annualValue ? 'Promised ' + money(o.annualValue) + '/yr' : 'No promise', m.x.acc.sageCode ? (sageTotalFor(m.x.acc) ? money(sageTotalFor(m.x.acc)) + ' actual' : 'no spend yet') : 'No Sage code', m.x.acc.sageCode || ''].filter(Boolean).join(' · ') : (o.nextAction || '');
+      var o = m.x.o, reason = m.kind === 'lost' ? (o.lostReason || '') : m.kind === 'hold' ? ((o.holdReason || '') + (o.holdUntil ? ' · until ' + fmtDate(o.holdUntil) : '')) : m.kind === 'won' ? (m.x.acc.sageCode ? 'Sage ' + m.x.acc.sageCode : 'No Sage code') : (o.nextAction || '');
+      var actual = m.kind === 'won' ? (m.x.acc.sageCode ? (sageTotalFor(m.x.acc) ? '<b style="color:var(--green)">' + money(sageTotalFor(m.x.acc)) + '</b>' : '<span class="muted">no spend yet</span>') : '<span class="muted">—</span>') : '<span class="muted">·</span>';
       html += '<tr onclick="openOpp(\'' + m.x.repKey + '\',\'' + o.id + '\')"><td>' + fmtDate(m.at) + '</td><td><span class="stg" data-s="' + h(m.e.to) + '">' + h(bdKindLabel(m.kind)) + '</span></td>' + (repKey ? '' : '<td class="hm">' + h(bdFirst(m.x.rep)) + '</td>') +
-        '<td><div class="cell"><b>' + h(m.x.acc.name) + '</b><small>' + h(o.title || '') + '</small></div></td><td class="hm">' + (m.e.from ? '<span class="stg" data-s="' + h(m.e.from) + '">' + h(m.e.from) + '</span> → ' : '') + '<span class="stg" data-s="' + h(m.e.to) + '">' + h(m.e.to) + '</span></td><td class="num">' + money(m.x.value) + '</td><td class="hm">' + h(reason) + '</td></tr>';
+        '<td><div class="cell"><b>' + h(m.x.acc.name) + '</b><small>' + h(o.title || '') + '</small></div></td><td class="hm">' + (m.e.from ? '<span class="stg" data-s="' + h(m.e.from) + '">' + h(m.e.from) + '</span> → ' : '') + '<span class="stg" data-s="' + h(m.e.to) + '">' + h(m.e.to) + '</span></td><td class="num">' + (m.x.value ? money(m.x.value) : '<span class="muted">No promise</span>') + '</td><td class="num">' + actual + '</td><td class="hm">' + h(reason) + '</td></tr>';
     });
     html += '</tbody></table></div>' + (shown.length > limit ? '<div class="row" style="padding:8px 0"><span class="muted">Showing the latest ' + limit + ' of ' + shown.length + '.</span><button class="btn btn-sm" onclick="bdSet(\'showAll\', true)">Show all</button></div>' : (S.board.showAll && shown.length > 50 ? '<div class="row" style="padding:8px 0"><button class="btn btn-sm" onclick="bdSet(\'showAll\', false)">Show fewer</button></div>' : ''));
   }
