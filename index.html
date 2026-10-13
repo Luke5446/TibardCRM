@@ -448,7 +448,7 @@ function kpisFor(repKey, period){
   var we = weekEnd();
   rep.opportunities.forEach(function(o){
     if (isOpen(o)) { k.open++; k.weighted += weighted(o); k.pipeline += (o.annualValue || 0); if (o.stage === 'On hold') k.hold++; else k.active++; }
-    if (o.stage === 'Won') { k.wonAll++; if (!o.imported && (o.wonDate || o.updatedAt || '') >= from.slice(0, 10)) { k.won++; k.wonVal += (o.annualValue || o.firstOrderValue || 0); } }
+    if (o.stage === 'Won') { k.wonAll++; if (!o.imported && (wonDateOf(o, accOf(rep, o.accountId)) || o.updatedAt || '') >= from.slice(0, 10)) { k.won++; k.wonVal += (o.annualValue || o.firstOrderValue || 0); } }
     if (o.stage === 'Lost') { k.lostAll++; if ((o.updatedAt || '') >= from) k.lost++; }
     if (!o.imported && (o.createdAt || '') >= from) k.newOpps++;
     if (isOpen(o) && o.nextActionDue) { var n = daysUntil(o.nextActionDue); if (n < 0) k.overdue++; if (o.nextActionDue <= we) k.dueWeek++; }
@@ -606,12 +606,16 @@ function bdOpps(){
   repUsers().forEach(function(u){
     var rep = S.data[u.key]; if (!rep) return;
     var acts = {}; (rep.activities || []).forEach(function(a){ if (a.oppId) (acts[a.oppId] = acts[a.oppId] || []).push(a); });
-    (rep.opportunities || []).forEach(function(o){ out.push({ o: o, acc: accOf(rep, o.accountId), rep: u, repKey: u.key, events: bdEvents(o, acts[o.id] || []), value: bdValue(o) }); });
+    (rep.opportunities || []).forEach(function(o){ var acc = accOf(rep, o.accountId), wd = wonDateOf(o, acc); out.push({ o: o, acc: acc, rep: u, repKey: u.key, wd: wd, events: bdEvents(o, acts[o.id] || [], wd), value: bdValue(o) }); });
   });
   bdOpps._c = out; bdOpps._basis = S.board.basis;
   return out;
 }
-function bdEvents(o, acts){
+/* The won date shown and reported: the Sage account-opened date when the file has one,
+   unless the rep deliberately set a different date (o.wonDateManual). */
+function sageOpenedFor(acc){ var cu = acc && bdSageFor(acc); return cu && cu.opened ? cu.opened : null; }
+function wonDateOf(o, acc){ if (o.stage !== 'Won') return o.wonDate || null; if (o.wonDateManual) return o.wonDate || null; return sageOpenedFor(acc) || o.wonDate || null; }
+function bdEvents(o, acts, wd){
   var ev = [];
   if (o.stageHistory && o.stageHistory.length) {
     o.stageHistory.forEach(function(e){ ev.push({ at: e.at, from: e.from || null, to: e.to, by: e.by || '' }); });
@@ -623,8 +627,8 @@ function bdEvents(o, acts){
     ev = ev.concat(trans);
   }
   var last = ev[ev.length - 1];
-  if (last.to !== o.stage) ev.push({ at: o.stage === 'Won' && o.wonDate ? o.wonDate + 'T12:00:00' : (o.updatedAt || o.createdAt), from: last.to, to: o.stage, by: o.updatedBy || '' });
-  if (o.stage === 'Won' && o.wonDate) { for (var i = ev.length - 1; i >= 0; i--) if (ev[i].to === 'Won') { ev[i].at = o.wonDate + 'T12:00:00'; break; } }
+  if (last.to !== o.stage) ev.push({ at: o.stage === 'Won' && wd ? wd + 'T12:00:00' : (o.updatedAt || o.createdAt), from: last.to, to: o.stage, by: o.updatedBy || '' });
+  if (o.stage === 'Won' && wd) { for (var i = ev.length - 1; i >= 0; i--) if (ev[i].to === 'Won') { ev[i].at = wd + 'T12:00:00'; break; } }
   return ev;
 }
 function bdMovements(from, to, repKey){
@@ -702,7 +706,7 @@ function bdSageRows(repKey){
   var rows = [];
   bdOpps().forEach(function(x){
     if (x.o.stage !== 'Won' || (repKey && x.repKey !== repKey)) return;
-    var wonAt = x.o.wonDate || (x.events.filter(function(e){ return e.to === 'Won'; }).pop() || {}).at || x.o.updatedAt;
+    var wonAt = x.wd || (x.events.filter(function(e){ return e.to === 'Won'; }).pop() || {}).at || x.o.updatedAt;
     var fy = bdFyOf(wonAt), y = fy ? +fy.split('/')[0] + 1 : 0, nfy = fy ? y + '/' + pad((y + 1) % 100) : '';
     var sg = bdSageFor(x.acc), sp = sg ? (sg.spend || {}) : null;
     rows.push({ x: x, wonAt: wonAt, fy: fy, nfy: nfy, sage: sg, promised: bdV(x.o.annualValue), sp1: sg ? bdV(sp[fy]) : null, sp2: sg ? bdV(sp[nfy]) : null });
@@ -994,7 +998,7 @@ function openOpp(key, id){
   // deal
   body += '<div class="sec"><h3>Opportunity' + (ed ? '<span class="r"><button class="btn btn-sm" onclick="editDeal(\'' + key + '\',\'' + id + '\')">Edit</button></span>' : '') + '</h3><div class="b"><div class="kv">' +
     kv('Title', o.title) + kv('1st order value', money(o.firstOrderValue)) + kv('Annual value', money(o.annualValue)) + kv('% chance', o.probability != null ? o.probability + '%' : '—') + kv('Weighted', money(weighted(o))) + kv('Expected start', o.expectedStart || '—') +
-    (o.stage === 'Won' ? kv('Won on', fmtDate(o.wonDate)) : '') + (o.stage === 'Lost' ? kv('Lost reason', o.lostReason || '—') : '') + (o.stage === 'On hold' ? kv('Revisit', fmtDate(o.holdUntil || o.nextActionDue)) + kv('Hold reason', o.holdReason || '—') : '') + (o.stage === 'Won' ? kv('Sage spend', bdSpendLine(acc), true) : '') +
+    (o.stage === 'Won' ? kv('Won on', fmtDate(wonDateOf(o, acc)) + (sageOpenedFor(acc) && !o.wonDateManual ? ' <span class="muted">(Sage account opened)</span>' : ''), true) : '') + (o.stage === 'Lost' ? kv('Lost reason', o.lostReason || '—') : '') + (o.stage === 'On hold' ? kv('Revisit', fmtDate(o.holdUntil || o.nextActionDue)) + kv('Hold reason', o.holdReason || '—') : '') + (o.stage === 'Won' ? kv('Sage spend', bdSpendLine(acc), true) : '') +
     '<div class="wide"><b>Next action</b><span><span class="due ' + dueClass(o.nextActionDue) + '" style="font-weight:700">' + (o.nextActionDue ? fmtDate(o.nextActionDue) + ' (' + dueLabel(o.nextActionDue) + ')' : 'no date') + '</span> — ' + h(o.nextAction || '—') + '</span></div>' +
     '</div></div></div>';
   // company
@@ -1049,7 +1053,7 @@ function saveUpdate(key, id){
   if (f.stage !== o.stage) note = (note ? note + '\n' : '') + 'Stage: ' + o.stage + ' → ' + f.stage;
   rep.activities.push({ id: uid('act'), oppId: o.id, accountId: o.accountId, type: type, note: note, nextAction: f.nextAction, nextActionDue: f.nextActionDue || null, at: at, by: who });
   o.nextAction = f.nextAction; o.nextActionDue = f.nextActionDue || null; o.lastActivityAt = at;
-  if (f.stage !== o.stage) { logStage(o, o.stage, f.stage); o.stage = f.stage; if (f.stage === 'Won') { o.wonDate = f.wonDate || today(); if (f.sageCode) { acc.sageCode = f.sageCode.trim().toUpperCase(); stamp(acc); } acc.type = 'Existing customer'; } if (f.stage === 'Lost') o.lostReason = f.lostReason || ''; if (f.stage === 'On hold') { o.holdReason = (f.holdReason || '').trim(); o.holdUntil = f.holdUntil || null; if (f.holdUntil && !o.nextActionDue) { o.nextActionDue = f.holdUntil; o.nextAction = o.nextAction || 'Revisit'; } } }
+  if (f.stage !== o.stage) { logStage(o, o.stage, f.stage); o.stage = f.stage; if (f.stage === 'Won') { if (f.sageCode) { acc.sageCode = f.sageCode.trim().toUpperCase(); stamp(acc); } var so = sageOpenedFor(acc); o.wonDate = f.wonDate || so || today(); o.wonDateManual = !!(so && o.wonDate !== so); acc.type = 'Existing customer'; } if (f.stage === 'Lost') o.lostReason = f.lostReason || ''; if (f.stage === 'On hold') { o.holdReason = (f.holdReason || '').trim(); o.holdUntil = f.holdUntil || null; if (f.holdUntil && !o.nextActionDue) { o.nextActionDue = f.holdUntil; o.nextAction = o.nextAction || 'Revisit'; } } }
   else if (f.stage === 'Won' && f.sageCode && f.sageCode !== acc.sageCode) { acc.sageCode = f.sageCode.trim().toUpperCase(); stamp(acc); }
   stamp(o);
   save(key, who + ': update ' + acc.name);
@@ -1065,7 +1069,7 @@ function editDeal(key, id){
 function saveDeal(key, id){
   var rep = S.data[key], o = rep.opportunities.filter(function(x){ return x.id === id; })[0], f = readForm(), old = o.stage;
   o.title = f.title.trim() || 'Uniform supply'; o.firstOrderValue = num(f.firstOrderValue); o.annualValue = num(f.annualValue); o.probability = f.probability === '' ? null : +f.probability; o.expectedStart = f.expectedStart.trim(); o.stage = f.stage; o.nextAction = f.nextAction.trim(); o.nextActionDue = f.nextActionDue || null; o.wonDate = f.wonDate || null; o.lostReason = f.lostReason.trim(); o.holdReason = (f.holdReason || '').trim(); o.holdUntil = f.holdUntil || null;
-  if (o.stage === 'Won' && !o.wonDate) o.wonDate = today();
+  if (o.stage === 'Won') { var so = sageOpenedFor(accOf(rep, o.accountId)); if (!o.wonDate) o.wonDate = so || today(); o.wonDateManual = !!(so && o.wonDate !== so); }
   if (old !== o.stage) logStage(o, old, o.stage);
   if (old !== o.stage) rep.activities.push({ id: uid('act'), oppId: o.id, accountId: o.accountId, type: 'Note', note: 'Stage: ' + old + ' → ' + o.stage, at: nowISO(), by: S.user.name });
   stamp(o); save(key, S.user.name + ': edit ' + accOf(rep, o.accountId).name); openOpp(key, id); render();
@@ -1212,7 +1216,17 @@ var SAGE_COLS = {
 /* Sage transaction types: invoices count, credit notes subtract, receipts / payments / allocations are ignored. */
 function sageSign(t){ t = String(t || '').trim().toLowerCase(); if (!t) return 1; if (/^(sc|scr|cr|crn)$|credit/.test(t)) return -1; if (/^(si|inv)$|invoice/.test(t)) return 1; return 0; }
 function sageNum(v){ v = String(v == null ? '' : v).replace(/[£,\s]/g, ''); if (/^\(.*\)$/.test(v)) v = '-' + v.slice(1, -1); var n = parseFloat(v); return isNaN(n) ? 0 : n; }
-function sageDate(v){ v = String(v || '').trim(); var m = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/.exec(v); if (m) { var y = +m[3]; if (y < 100) y += 2000; return y + '-' + pad(+m[2]) + '-' + pad(+m[1]); } if (/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0, 10); var d = new Date(v); return isNaN(d) ? '' : bdYmd(d); }
+var SAGE_MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+/* UK dates as Sage / Excel write them: 28/09/2026, 28-09-2026, 28.09.26, 28 Sep 2026, 2026-09-28, any of them with a trailing time. Never US month-first. */
+function sageDate(v){
+  v = String(v || '').trim().replace(/[T ]\d{1,2}:\d{2}(:\d{2})?(\.\d+)?\s*(am|pm)?$/i, '').trim();
+  var m = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/.exec(v); if (m) { var y = +m[3]; if (y < 100) y += 2000; return y + '-' + pad(+m[2]) + '-' + pad(+m[1]); }
+  m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(v); if (m) return m[1] + '-' + pad(+m[2]) + '-' + pad(+m[3]);
+  m = /^(\d{1,2})[ \-\/]([A-Za-z]{3})[A-Za-z]*[ \-\/,]+(\d{2,4})$/.exec(v); if (m && SAGE_MONTHS[m[2].toLowerCase()]) { var y2 = +m[3]; if (y2 < 100) y2 += 2000; return y2 + '-' + pad(SAGE_MONTHS[m[2].toLowerCase()]) + '-' + pad(+m[1]); }
+  m = /^(\d{4})(\d{2})(\d{2})$/.exec(v); if (m) return m[1] + '-' + m[2] + '-' + m[3];
+  return '';
+}
+function sageDateOk(d){ var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d); return !!m && +m[2] >= 1 && +m[2] <= 12 && +m[3] >= 1 && +m[3] <= 31; }
 function importSageCSV(){
   var inp = $('sageCsv'), f = readForm(); if (!inp || !inp.files.length) { alert('Choose the CSV export first'); return; }
   inp.files[0].text().then(function(text){
@@ -1226,12 +1240,12 @@ function importSageCSV(){
     var summarised = layout === 'summary', fyNow = bdFyOf(today()), fyPrev = bdPrevFY(fyNow);
     var sage = (S.sage && f.sageMode !== 'replace') ? S.sage : { updatedAt: nowISO(), source: '', fyStartMonth: S.cfg.fyStartMonth || 2, customers: {} };
     if (f.sageMode === 'replace' && S.sage) Object.keys(S.sage.customers || {}).forEach(function(k){ sage.customers[k] = { name: S.sage.customers[k].name, spend: {} }; });
-    var n = 0, bad = 0;
+    var n = 0, bad = 0, opened = 0, badOpened = [];
     rows.slice(1).forEach(function(r){
       var code = (r[ci.code] || '').trim().toUpperCase(); if (!code) return;
       var cu = sage.customers[code] = sage.customers[code] || { name: '', spend: {} };
       if (ci.name >= 0 && r[ci.name] && !cu.name) cu.name = r[ci.name].trim();
-      if (ci.opened >= 0) { var od = sageDate(r[ci.opened]); if (od) cu.opened = od; }
+      if (ci.opened >= 0) { var od = sageDate(r[ci.opened]); if (od && sageDateOk(od)) { cu.opened = od; opened++; } else if (String(r[ci.opened] || '').trim() && badOpened.length < 3) badOpened.push(r[ci.opened]); }
       var fy, amt;
       if (layout === 'turnover') {
         cu.spend[fyNow] = Math.round(sageNum(r[ci.thisYear]) * 100) / 100;
@@ -1239,13 +1253,13 @@ function importSageCSV(){
         n++; return;
       }
       if (summarised) { fy = String(r[ci.fy] || '').trim().replace('-', '/'); amt = sageNum(r[ci.spend]); }
-      else { var d = sageDate(r[ci.date]); if (!d) { bad++; return; } fy = bdFyOf(d); amt = sageNum(r[ci.net]); if (ci.type >= 0) { var sg = sageSign(r[ci.type]); if (!sg) return; amt = Math.abs(amt) * sg; } }
+      else { var d = sageDate(r[ci.date]); if (!d || !sageDateOk(d)) { bad++; return; } fy = bdFyOf(d); amt = sageNum(r[ci.net]); if (ci.type >= 0) { var sg = sageSign(r[ci.type]); if (!sg) return; amt = Math.abs(amt) * sg; } }
       if (!fy) { bad++; return; }
       cu.spend[fy] = Math.round(((cu.spend[fy] || 0) + amt) * 100) / 100; n++;
     });
     sage.source = inp.files[0].name; sage.fyStartMonth = S.cfg.fyStartMonth || 2;
     S.sage = sage;
-    return save('sage', S.user.name + ': Sage spend from ' + inp.files[0].name).then(function(){ toast(n + ' rows applied' + (bad ? ', ' + bad + ' skipped' : '')); openSettings(); render(); });
+    return save('sage', S.user.name + ': Sage spend from ' + inp.files[0].name).then(function(){ var msg = n + ' rows applied' + (bad ? ', ' + bad + ' skipped' : '') + (ci.opened >= 0 ? ' · ' + opened + ' opened dates' : ''); toast(msg, 4000); if (badOpened.length) alert(msg + '.\n\nSome Opened values could not be read, e.g. "' + badOpened.join('", "') + '". Format the column as a date (dd/mm/yyyy) before saving the CSV.'); openSettings(); render(); });
   }).catch(function(e){ alert('Import failed: ' + e.message); });
 }
 
