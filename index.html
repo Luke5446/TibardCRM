@@ -8,6 +8,7 @@
 <meta name="theme-color" content="#1F3864">
 <title>Tibard Sales Pipeline</title>
 <!-- Changelog: 2026-11-09 — fix search boxes losing focus after each character (rep pipeline + directory). -->
+<!-- Changelog: 2026-11-09 — Sage spend import accepts Excel (.xlsx) as well as CSV. -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231F3864'/%3E%3Ctext x='16' y='22' font-size='17' font-family='Arial' font-weight='700' text-anchor='middle' fill='%23C9A24B'%3ET%3C/text%3E%3C/svg%3E">
 <style>
 :root{
@@ -1256,8 +1257,8 @@ function openSettings(){
   if (admin) {
     body += '<div class="sec"><h3>Sage spend</h3><div class="b help">' + (S.sage ? 'Loaded <b>' + Object.keys(S.sage.customers || {}).length + '</b> customers from <code>' + h(S.cfg.sagePath || DEFAULTS.SAGE_PATH) + '</code>, updated ' + fmtDate(S.sage.updatedAt) + '.' : 'No <code>' + h(S.cfg.sagePath || DEFAULTS.SAGE_PATH) + '</code> in the data repo yet.') +
       ' Won accounts are matched on their Sage account code; an Opened column sets the won date.' +
-      '<div style="margin-top:8px"><b>Refresh from Sage:</b> export to CSV and upload it here. Any of these layouts work, with column names as Sage 50 or Sage 200 produce them: <b>customer list</b> with Account Number and Turnover This Year / Last Year (quickest), <b>invoice or transaction lines</b> such as the Sales Day Book or a transaction listing, with Account, Date, Type and Net or Goods Value (invoices count, credit notes are subtracted, receipts are ignored, grouped by financial year starting month ' + (S.cfg.fyStartMonth || 2) + '), or a sheet of Code, FY, Spend. Excel exports: save as CSV first.</div>' +
-      '<div class="grid" style="margin-top:8px">' + fld('How to apply', 'sageMode', 'merge', 'select', { options: [['merge', 'Merge: years in the file replace the stored figures, other years are kept'], ['replace', 'Replace: start the spend figures again']] }) + '<div class="field"><label>Sage CSV export</label><input type="file" id="sageCsv" accept=".csv,text/csv"></div></div>' +
+      '<div style="margin-top:8px"><b>Refresh from Sage:</b> export to CSV or Excel (.xlsx) and upload it here. For Excel the first sheet is read, headers on row 1. Any of these layouts work, with column names as Sage 50 or Sage 200 produce them: <b>customer list</b> with Account Number and Turnover This Year / Last Year (quickest), <b>invoice or transaction lines</b> such as the Sales Day Book or a transaction listing, with Account, Date, Type and Net or Goods Value (invoices count, credit notes are subtracted, receipts are ignored, grouped by financial year starting month ' + (S.cfg.fyStartMonth || 2) + '), or a sheet of Code, FY, Spend. Excel exports: save as CSV first.</div>' +
+      '<div class="grid" style="margin-top:8px">' + fld('How to apply', 'sageMode', 'merge', 'select', { options: [['merge', 'Merge: years in the file replace the stored figures, other years are kept'], ['replace', 'Replace: start the spend figures again']] }) + '<div class="field"><label>Sage export (CSV or Excel)</label><input type="file" id="sageCsv" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"></div></div>' +
       '<div class="row" style="margin-top:8px"><button class="btn btn-gold" onclick="importSageCSV()">Upload &amp; save</button></div></div></div>';
   }
   body += '<div class="sec"><h3>Setup guide</h3><div class="b help"><ol>' +
@@ -1318,11 +1319,33 @@ function sageDate(v){
   return '';
 }
 function sageDateOk(d){ var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d); return !!m && +m[2] >= 1 && +m[2] <= 12 && +m[3] >= 1 && +m[3] <= 31; }
+/* Excel uploads: SheetJS is loaded from the CDN only when an .xlsx/.xls file is chosen. */
+function loadSheetJS(){
+  if (window.XLSX) return Promise.resolve();
+  return new Promise(function(res, rej){ var sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; sc.onload = res; sc.onerror = function(){ rej(new Error('Could not load the Excel reader (check internet access), or save the file as CSV and try again')); }; document.head.appendChild(sc); });
+}
+/* Returns rows (arrays of strings) from a CSV or Excel file; Excel dates become yyyy-mm-dd and blank trailing columns/rows are dropped. */
+function sageFileRows(file){
+  var isXl = /\.xlsx?$/i.test(file.name);
+  return file.arrayBuffer().then(function(buf){
+    if (!isXl) { var text; try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch (e) { text = new TextDecoder('windows-1252').decode(buf); } return parseCSV(text); }
+    return loadSheetJS().then(function(){
+      var wb = XLSX.read(buf, { type: 'array', cellDates: true }), ws = wb.Sheets[wb.SheetNames[0]];
+      if (!ws) throw new Error('The workbook has no sheets');
+      /* Only read as far as the last header on row 1: Power Query exports can carry dozens of empty formatted columns. */
+      var rg = XLSX.utils.decode_range(ws['!ref'] || 'A1'), lastCol = -1;
+      for (var c = rg.s.c; c <= rg.e.c; c++) { var cell = ws[XLSX.utils.encode_cell({ r: rg.s.r, c: c })]; if (cell && String(cell.v == null ? '' : cell.v).trim() !== '') lastCol = c; }
+      if (lastCol < 0) throw new Error('No headers found on row 1 of the first sheet');
+      var raw = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '', blankrows: false, range: { s: { r: rg.s.r, c: rg.s.c }, e: { r: rg.e.r, c: lastCol } } });
+      var rows = raw.map(function(r){ return r.map(function(c){ if (c instanceof Date) return isNaN(c) ? '' : c.getFullYear() + '-' + pad(c.getMonth() + 1) + '-' + pad(c.getDate()); return c == null ? '' : String(c).trim(); }); });
+      return rows.filter(function(r){ return r.some(function(c){ return c !== ''; }); });
+    });
+  });
+}
 function importSageCSV(){
-  var inp = $('sageCsv'), f = readForm(); if (!inp || !inp.files.length) { alert('Choose the CSV export first'); return; }
-  inp.files[0].arrayBuffer().then(function(buf){
-    var text; try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch (e) { text = new TextDecoder('windows-1252').decode(buf); }
-    var rows = parseCSV(text); if (rows.length < 2) throw new Error('No rows found');
+  var inp = $('sageCsv'), f = readForm(); if (!inp || !inp.files.length) { alert('Choose the Sage export first'); return; }
+  sageFileRows(inp.files[0]).then(function(rows){
+    if (rows.length < 2) throw new Error('No rows found');
     var head = rows[0].map(function(h){ return h.toLowerCase().replace(/[^a-z0-9]/g, ''); });
     var col = function(k){ for (var i = 0; i < head.length; i++) if (SAGE_COLS[k].indexOf(head[i]) >= 0) return i; return -1; };
     var ci = { code: col('code'), name: col('name'), date: col('date'), net: col('net'), fy: col('fy'), spend: col('spend'), thisYear: col('thisYear'), lastYear: col('lastYear'), type: col('type'), opened: col('opened') };
