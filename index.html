@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#1F3864">
 <title>Tibard Sales Pipeline</title>
+<!-- Changelog: 2026-11-09 — fix search boxes losing focus after each character (rep pipeline + directory). -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231F3864'/%3E%3Ctext x='16' y='22' font-size='17' font-family='Arial' font-weight='700' text-anchor='middle' fill='%23C9A24B'%3ET%3C/text%3E%3C/svg%3E">
 <style>
 :root{
@@ -485,6 +486,16 @@ function renderTabs(){
   else { uc.style.display = ''; uc.innerHTML = '<span style="cursor:pointer" onclick="openPin()">🔒 <u>Enter PIN</u></span>'; }
 }
 function go(tab){ S.tab = tab; LS.set('tab', tab); render(); window.scrollTo(0, 0); }
+/* Search boxes: render() rebuilds the page (and the input with it), so after re-rendering
+   put focus and the caret back in the new input. Otherwise only one character can be typed. */
+function searchTyped(el, fk){
+  var f = S.filters[fk] || (S.filters[fk] = { q: '' });
+  f.q = el.value;
+  var id = el.id, pos = el.selectionStart;
+  render();
+  var n = document.getElementById(id);
+  if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) {} }
+}
 
 function render(){
   if (!S.cfg) { $('main').innerHTML = '<div class="empty">Loading…</div>'; return; }
@@ -974,7 +985,7 @@ function renderRep(key){
   var rep = S.data[key], u = userByKey(key), f = S.filters[key] || (S.filters[key] = { q: '', stage: 'open', sort: 'next', view: 'list' });
   var html = '';
   if (!canEdit(key)) html += '<div class="banner">Viewing ' + h(u.name) + '\'s pipeline (read only). ' + (S.user ? '' : '<span class="lnk" onclick="openPin()">Enter PIN to edit</span>') + '</div>';
-  html += '<div class="toolbar"><input type="search" placeholder="Search company, contact, notes…" value="' + h(f.q) + '" oninput="S.filters[\'' + key + '\'].q=this.value;render()">' +
+  html += '<div class="toolbar"><input type="search" id="q-' + key + '" placeholder="Search company, contact, notes…" value="' + h(f.q) + '" oninput="searchTyped(this,\'' + key + '\')">' +
     '<select onchange="S.filters[\'' + key + '\'].stage=this.value;render()">' + [['open', 'Open (not won/lost)'], ['active', 'Active (excl. on hold)'], ['week', 'Due this week / overdue'], ['all', 'All']].concat(S.cfg.stages.map(function(s){ return [s, s]; })).map(function(o){ return '<option value="' + h(o[0]) + '"' + (f.stage === o[0] ? ' selected' : '') + '>' + h(o[1]) + '</option>'; }).join('') + '</select>' +
     '<select onchange="S.filters[\'' + key + '\'].sort=this.value;render()">' + [['next', 'Next action'], ['value', 'Annual value'], ['weighted', 'Weighted'], ['updated', 'Last updated'], ['name', 'Company A–Z']].map(function(o){ return '<option value="' + o[0] + '"' + (f.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
     '<button class="btn btn-sm hideM" onclick="S.filters[\'' + key + '\'].view=\'' + (f.view === 'list' ? 'board' : 'list') + '\';render()">' + (f.view === 'list' ? 'Board view' : 'List view') + '</button></div>';
@@ -1013,7 +1024,7 @@ function oppCard(key, x, compact){
 /* ---------- directory ---------- */
 function renderDirectory(){
   var f = S.filters.dir || (S.filters.dir = { q: '' }), q = f.q.toLowerCase();
-  var html = '<div class="toolbar"><input type="search" placeholder="Search companies & contacts…" value="' + h(f.q) + '" oninput="S.filters.dir.q=this.value;render()" autofocus></div>';
+  var html = '<div class="toolbar"><input type="search" id="q-dir" placeholder="Search companies & contacts…" value="' + h(f.q) + '" oninput="searchTyped(this,\'dir\')"></div>';
   var rows = [];
   repUsers().forEach(function(u){ var rep = S.data[u.key]; rep.accounts.forEach(function(a){ var cs = contactsOf(rep, a.id), os = oppsOf(rep, a.id); if (q && [a.name, a.location, a.sector, a.sageCode, a.brief].concat(cs.map(function(c){ return c.name + ' ' + c.role + ' ' + c.email + ' ' + c.phone; })).join(' ').toLowerCase().indexOf(q) < 0) return; rows.push({ a: a, cs: cs, os: os, rep: rep, key: u.key }); }); });
   rows.sort(function(x, y){ return x.a.name.localeCompare(y.a.name); });
