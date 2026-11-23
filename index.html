@@ -9,6 +9,7 @@
 <title>Tibard Sales Pipeline</title>
 <!-- Changelog: 2026-11-09 — fix search boxes losing focus after each character (rep pipeline + directory). -->
 <!-- Changelog: 2026-11-09 — Sage spend import accepts Excel (.xlsx) as well as CSV. -->
+<!-- Changelog: 2026-11-23 — any unlocked user can change their own PIN (user chip → "PIN"); current PIN is checked first. -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231F3864'/%3E%3Ctext x='16' y='22' font-size='17' font-family='Arial' font-weight='700' text-anchor='middle' fill='%23C9A24B'%3ET%3C/text%3E%3C/svg%3E">
 <style>
 :root{
@@ -483,7 +484,7 @@ function renderTabs(){
     return '<button class="' + (S.tab === t.k ? 'on' : '') + '" onclick="go(\'' + t.k + '\')">' + h(t.l) + (t.n != null ? ' <span class="cnt">' + t.n + '</span>' : '') + (t.lock ? ' <span class="lock">🔒</span>' : '') + '</button>';
   }).join('');
   var uc = $('userChip');
-  if (S.user) { uc.style.display = ''; uc.innerHTML = '<b>' + h(S.user.name.split(' ')[0]) + '</b> · <span style="cursor:pointer;text-decoration:underline" onclick="lockOut()">lock</span>'; }
+  if (S.user) { uc.style.display = ''; uc.innerHTML = '<b>' + h(S.user.name.split(' ')[0]) + '</b> · <span style="cursor:pointer;text-decoration:underline" onclick="openChangePin()" title="Change your PIN">PIN</span> · <span style="cursor:pointer;text-decoration:underline" onclick="lockOut()">lock</span>'; }
   else { uc.style.display = ''; uc.innerHTML = '<span style="cursor:pointer" onclick="openPin()">🔒 <u>Enter PIN</u></span>'; }
 }
 function go(tab){ S.tab = tab; LS.set('tab', tab); render(); window.scrollTo(0, 0); }
@@ -1074,6 +1075,35 @@ function submitPin(){
   else { $('pinMsg').textContent = 'PIN not recognised'; $('pinIn').select(); }
 }
 
+/* ---------- change own PIN (any unlocked user) ---------- */
+function openChangePin(){
+  if (!S.user) { openPin(openChangePin); return; }
+  var attrs = ' inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off"';
+  openSheet('Change your PIN',
+    '<div class="muted" style="margin-bottom:10px">' + h(S.user.name) + ' — enter your current PIN, then choose a new 4–6 digit PIN.</div><div class="grid">' +
+    fld('Current PIN', 'cpOld', '', 'password', { span: true, attrs: attrs }) +
+    fld('New PIN (4–6 digits)', 'cpNew', '', 'password', { span: true, attrs: attrs }) +
+    fld('Confirm new PIN', 'cpNew2', '', 'password', { span: true, attrs: attrs }) + '</div>' +
+    '<div class="msg" id="cpMsg" style="font-size:12px;color:var(--red);min-height:16px;margin-top:6px"></div>',
+    '<button class="btn" onclick="closeSheet()">Cancel</button><button class="btn btn-gold" onclick="submitChangePin()">Save new PIN</button>');
+  setTimeout(function(){ var i = document.querySelector('#sb [data-f="cpOld"]'); if (i) i.focus(); }, 50);
+  $('sb').addEventListener('keydown', function(e){ if (e.key === 'Enter') submitChangePin(); });
+}
+function submitChangePin(){
+  if (!S.user) return;
+  var f = readForm(), msg = $('cpMsg'), u = userByKey(S.user.key) || S.user;
+  var old = (f.cpOld || '').trim(), nw = (f.cpNew || '').trim(), nw2 = (f.cpNew2 || '').trim();
+  if (sha256(old) !== u.pinHash) { msg.textContent = 'Current PIN not recognised'; return; }
+  if (!/^\d{4,6}$/.test(nw)) { msg.textContent = 'New PIN must be 4–6 digits'; return; }
+  if (nw !== nw2) { msg.textContent = 'New PINs do not match'; return; }
+  var hsh = sha256(nw);
+  if (hsh === u.pinHash) { msg.textContent = 'That is already your PIN'; return; }
+  if (S.cfg.users.some(function(x){ return x.pinHash === hsh && x !== u; })) { msg.textContent = 'That PIN is already in use — choose a different one'; return; }
+  u.pinHash = hsh; S.user = u;
+  closeSheet();
+  save('config', 'Change PIN for ' + u.name).then(function(){ toast('PIN changed for ' + u.name); });
+}
+
 /* ---------- opportunity detail ---------- */
 function openOpp(key, id){
   var rep = S.data[key], o = rep.opportunities.filter(function(x){ return x.id === id; })[0];
@@ -1252,7 +1282,7 @@ function openSettings(){
       '<table class="tbl" style="width:100%"><thead><tr><th>Name</th><th>Role</th><th class="hideM">Access</th><th></th></tr></thead><tbody>' +
       S.cfg.users.map(function(u){ return '<tr><td><b>' + h(u.name) + '</b></td><td>' + h(u.role) + '</td><td class="hideM muted">' + h(accessLabel(u)) + '</td><td style="text-align:right;white-space:nowrap"><button class="btn btn-sm" onclick="openUser(\'' + u.key + '\')">Edit</button> ' + (u.key === S.user.key ? '' : '<button class="btn btn-sm btn-red" onclick="deleteUser(\'' + u.key + '\')">Delete</button>') + '</td></tr>'; }).join('') +
       '</tbody></table><div class="row" style="margin-top:10px"><button class="btn btn-gold" onclick="openUser()">+ Add user</button></div>' +
-      '<div class="help" style="margin-top:10px">Reps get their own pipeline file and everyone can see every pipeline and the Sales Board. Admins can also manage users and PINs. To change stages/sectors, edit <code>' + h(DEFAULTS.CONFIG_PATH) + '</code> in the data repo.</div></div></div>';
+      '<div class="help" style="margin-top:10px">Reps get their own pipeline file and everyone can see every pipeline and the Sales Board. Admins can also manage users and PINs; anyone who is unlocked can change their own PIN from the <b>PIN</b> link in the top bar. To change stages/sectors, edit <code>' + h(DEFAULTS.CONFIG_PATH) + '</code> in the data repo.</div></div></div>';
   }
   if (admin) {
     body += '<div class="sec"><h3>Sage spend</h3><div class="b help">' + (S.sage ? 'Loaded <b>' + Object.keys(S.sage.customers || {}).length + '</b> customers from <code>' + h(S.cfg.sagePath || DEFAULTS.SAGE_PATH) + '</code>, updated ' + fmtDate(S.sage.updatedAt) + '.' : 'No <code>' + h(S.cfg.sagePath || DEFAULTS.SAGE_PATH) + '</code> in the data repo yet.') +
