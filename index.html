@@ -10,7 +10,7 @@
 <!-- Changelog: 2026-11-09 — fix search boxes losing focus after each character (rep pipeline + directory). -->
 <!-- Changelog: 2026-11-09 — Sage spend import accepts Excel (.xlsx) as well as CSV. -->
 <!-- Changelog: 2026-11-23 — any unlocked user can change their own PIN (user chip → "PIN"); current PIN is checked first. -->
-<!-- Changelog: 2026-11-24 — "Last updated" (card age, sort, stale checks, Sales Board last touch) is now the latest of any edit, stage change or timeline entry; Edit deal stage changes count as activity. -->
+<!-- Changelog: 2026-11-24 — "Last updated" (card age, sort, stale checks, Sales Board last touch) is now the latest of any edit, stage change or timeline entry; Edit deal stage and next-action changes are logged on the timeline (old action kept) and count as activity. -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231F3864'/%3E%3Ctext x='16' y='22' font-size='17' font-family='Arial' font-weight='700' text-anchor='middle' fill='%23C9A24B'%3ET%3C/text%3E%3C/svg%3E">
 <style>
 :root{
@@ -1198,12 +1198,14 @@ function editDeal(key, id){
   openSheet('Edit · ' + h(acc.name), body, '<button class="btn" onclick="openOpp(\'' + key + '\',\'' + id + '\')">Cancel</button><button class="btn btn-gold" onclick="saveDeal(\'' + key + '\',\'' + id + '\')">Save</button>', { back: 'openOpp(\'' + key + '\',\'' + id + '\')' });
 }
 function saveDeal(key, id){
-  var rep = S.data[key], o = rep.opportunities.filter(function(x){ return x.id === id; })[0], f = readForm(), old = o.stage;
+  var rep = S.data[key], o = rep.opportunities.filter(function(x){ return x.id === id; })[0], f = readForm(), old = o.stage, oldNext = o.nextAction || '', oldDue = o.nextActionDue || null;
   if (f.stage === 'Won' && old !== 'Won' && !(accOf(rep, o.accountId).sageCode || '').trim()) { alert('Enter the Sage account number on the company (Edit company) before marking this as Won, or use + Add update which asks for it.'); return; }
   o.title = f.title.trim() || 'Uniform supply'; o.firstOrderValue = num(f.firstOrderValue); o.annualValue = num(f.annualValue); o.probability = f.probability === '' ? null : +f.probability; o.expectedStart = f.expectedStart.trim(); o.stage = f.stage; o.nextAction = f.nextAction.trim(); o.nextActionDue = f.nextActionDue || null; o.wonDate = f.wonDate || null; o.lostReason = f.lostReason.trim(); o.holdReason = (f.holdReason || '').trim(); o.holdUntil = f.holdUntil || null;
   if (o.stage === 'Won') { var so = sageOpenedFor(accOf(rep, o.accountId)); if (!o.wonDate) o.wonDate = so || today(); o.wonDateManual = !!(so && o.wonDate !== so); }
   if (old !== o.stage) logStage(o, old, o.stage);
-  if (old !== o.stage) { o.lastActivityAt = nowISO(); rep.activities.push({ id: uid('act'), oppId: o.id, accountId: o.accountId, type: 'Note', note: 'Stage: ' + old + ' → ' + o.stage, at: o.lastActivityAt, by: S.user.name }); }
+  var lines = []; if (old !== o.stage) lines.push('Stage: ' + old + ' → ' + o.stage);
+  if (o.nextAction !== oldNext || (o.nextActionDue || '') !== (oldDue || '')) lines.push('Next action: ' + (oldNext ? oldNext + (oldDue ? ' (by ' + fmtDate(oldDue) + ')' : '') : '—') + ' → ' + (o.nextAction ? o.nextAction + (o.nextActionDue ? ' (by ' + fmtDate(o.nextActionDue) + ')' : '') : '—'));
+  if (lines.length) { o.lastActivityAt = nowISO(); rep.activities.push({ id: uid('act'), oppId: o.id, accountId: o.accountId, type: 'Note', note: lines.join('\n'), nextAction: o.nextAction, nextActionDue: o.nextActionDue, at: o.lastActivityAt, by: S.user.name }); }
   stamp(o); save(key, S.user.name + ': edit ' + accOf(rep, o.accountId).name); openOpp(key, id); render();
 }
 
